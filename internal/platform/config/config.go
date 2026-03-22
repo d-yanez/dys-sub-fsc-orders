@@ -23,6 +23,11 @@ type Config struct {
 	OIDCValidation   bool
 	OIDCAudience     string
 	OIDCAllowedEmail string
+	MongoURI         string
+	MongoDBName      string
+	FSCBaseURL       string
+	FSCAPIKey        string
+	HTTPTimeoutMS    int
 }
 
 func Load() Config {
@@ -37,6 +42,11 @@ func Load() Config {
 		OIDCValidation:   getBoolOrDefault("OIDC_VALIDATION_ENABLED", false),
 		OIDCAudience:     strings.TrimSpace(os.Getenv("OIDC_AUDIENCE")),
 		OIDCAllowedEmail: strings.TrimSpace(os.Getenv("OIDC_ALLOWED_EMAIL")),
+		MongoURI:         strings.TrimSpace(os.Getenv("MONGODB_URI")),
+		MongoDBName:      getOrDefault("MONGODB_DB_NAME", "falabellaDB"),
+		FSCBaseURL:       getOrDefault("DYS_API_FSC_BASE_URL", "https://dys-api-fsc-785293986978.us-central1.run.app"),
+		FSCAPIKey:        strings.TrimSpace(os.Getenv("DYS_API_FSC_API_KEY")),
+		HTTPTimeoutMS:    getIntOrDefault("HTTP_TIMEOUT_MS_FSC", 5000),
 	}
 }
 
@@ -54,6 +64,18 @@ func getBoolOrDefault(key string, fallback bool) bool {
 		return fallback
 	}
 	parsed, err := strconv.ParseBool(raw)
+	if err != nil {
+		return fallback
+	}
+	return parsed
+}
+
+func getIntOrDefault(key string, fallback int) int {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(raw)
 	if err != nil {
 		return fallback
 	}

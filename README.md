@@ -2,12 +2,15 @@
 
 Subscriber HTTP Push (Pub/Sub) para eventos de Falabella Seller Center.
 
-En esta etapa (PR2) el servicio implementa:
+En esta etapa (PR3) el servicio implementa:
 - bootstrap Go y estructura por capas
 - endpoint push `POST /`
 - parseo de envelope Pub/Sub (`message.data` base64)
 - normalizacion de evento (`eventType || event`)
 - filtro de `onOrderCreated`
+- cliente FSC (`/order`, `/orderItems`, `/sku`)
+- persistencia core en MongoDB (`orders`, `order_items`)
+- enriquecimiento de thumbnail por SKU (degradado a warning si falla)
 - punto preparado para validacion OIDC (`middleware` stub)
 
 ## Endpoints
@@ -23,6 +26,11 @@ En esta etapa (PR2) el servicio implementa:
 - `OIDC_VALIDATION_ENABLED` (default `false`)
 - `OIDC_AUDIENCE` (opcional)
 - `OIDC_ALLOWED_EMAIL` (opcional)
+- `MONGODB_URI` (requerida para correr el servicio)
+- `MONGODB_DB_NAME` (default `falabellaDB`)
+- `DYS_API_FSC_BASE_URL` (default `https://dys-api-fsc-785293986978.us-central1.run.app`)
+- `DYS_API_FSC_API_KEY` (recomendada)
+- `HTTP_TIMEOUT_MS_FSC` (default `5000`)
 
 ## Ejecutar local
 ```bash
@@ -34,8 +42,6 @@ go run ./cmd/api
 go test ./...
 ```
 
-## Scope v1 (pendiente en PRs siguientes)
-- Integracion FSC (`/order`, `/orderItems`, `/sku`)
-- Mongo (`orders`, `order_items`, `event_logs`)
-- idempotencia y retries
+## Scope v1 pendiente (PRs siguientes)
+- `event_logs` + idempotencia + retries
 - Telegram final operativo
