@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/d-yanez/dys-sub-fsc-orders/internal/application/usecases"
+	"github.com/d-yanez/dys-sub-fsc-orders/internal/infrastructure/fsc"
+	mongoadapter "github.com/d-yanez/dys-sub-fsc-orders/internal/infrastructure/mongo"
 	httpint "github.com/d-yanez/dys-sub-fsc-orders/internal/interfaces/http"
 	"github.com/d-yanez/dys-sub-fsc-orders/internal/interfaces/http/handlers"
 	"github.com/d-yanez/dys-sub-fsc-orders/internal/platform/config"
@@ -17,7 +20,21 @@ func main() {
 	appLogger := logger.New(cfg.ServiceName, cfg.LogLevel)
 	slog.SetDefault(appLogger)
 
-	processEventUseCase := usecases.NewProcessOnOrderCreatedUseCase(appLogger)
+	ctx := context.Background()
+	mongoClient, err := mongoadapter.NewClient(ctx, cfg.MongoURI, cfg.MongoDBName)
+	if err != nil {
+		appLogger.Error("mongo initialization failed", "error", err)
+		return
+	}
+	defer func() {
+		_ = mongoClient.Close(ctx)
+	}()
+
+	fscClient := fsc.NewClient(cfg.FSCBaseURL, cfg.FSCAPIKey, time.Duration(cfg.HTTPTimeoutMS)*time.Millisecond)
+	orderRepo := mongoadapter.NewOrderRepository(mongoClient)
+	orderItemRepo := mongoadapter.NewOrderItemRepository(mongoClient)
+
+	processEventUseCase := usecases.NewProcessOnOrderCreatedUseCase(appLogger, fscClient, orderRepo, orderItemRepo)
 	pubSubHandler := handlers.NewPubSubPushHandler(appLogger, processEventUseCase)
 
 	router := httpint.NewRouter(cfg, appLogger, pubSubHandler)

@@ -76,12 +76,31 @@ func (h *PubSubPushHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// PR2 scope: ingestion + parsing + routing decision only.
+	result, err := h.useCase.Process(r.Context(), event, envelope.Message.MessageID)
+	if err != nil {
+		h.log.Error("order_processing_failed",
+			"messageId", envelope.Message.MessageID,
+			"eventType", decision.EventType,
+			"orderId", decision.OrderID,
+			"error", err.Error(),
+		)
+		h.respondJSON(w, http.StatusInternalServerError, map[string]any{
+			"ok":      false,
+			"status":  "failed",
+			"orderId": decision.OrderID,
+			"error":   "processing_failed",
+		})
+		return
+	}
+
 	h.respondJSON(w, http.StatusOK, map[string]any{
-		"ok":        true,
-		"status":    "accepted",
-		"eventType": decision.EventType,
-		"orderId":   decision.OrderID,
+		"ok":          true,
+		"status":      result.Status,
+		"eventType":   result.EventType,
+		"orderId":     result.OrderID,
+		"orderNumber": result.OrderNumber,
+		"itemsCount":  result.ItemsCount,
+		"warning":     result.Warning,
 	})
 }
 
