@@ -5,7 +5,9 @@
 
 ## Pub/Sub push
 - Endpoint: `POST /`
-- ACK en PR2: siempre `200` para envelopes parseables, incluyendo eventos ignorados.
+- ACK en PR4:
+  - `200` para duplicados procesados o casos `SUCCESS/PARTIAL_SUCCESS`
+  - `500` para fallo critico (habilita retry)
 
 ## OIDC
 - Middleware stub disponible para activar validacion en PRs siguientes:

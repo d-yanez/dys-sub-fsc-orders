@@ -72,8 +72,86 @@ func (r *fakeOrderItemRepo) UpsertMany(_ context.Context, items []entities.Order
 	return nil
 }
 
+type fakeEventLogRepo struct {
+	stored      map[string]*entities.EventLog
+	markAllowed bool
+}
+
+func (r *fakeEventLogRepo) EnsureReceived(_ context.Context, log entities.EventLog) error {
+	if r.stored == nil {
+		r.stored = map[string]*entities.EventLog{}
+	}
+	if _, ok := r.stored[log.ID]; !ok {
+		copy := log
+		r.stored[log.ID] = &copy
+	}
+	return nil
+}
+
+func (r *fakeEventLogRepo) MarkProcessing(_ context.Context, idempotencyKey, messageID, payloadHash, phase string) (bool, error) {
+	if r.stored == nil {
+		r.stored = map[string]*entities.EventLog{}
+	}
+	if !r.markAllowed {
+		return false, nil
+	}
+	current, ok := r.stored[idempotencyKey]
+	if !ok {
+		return false, nil
+	}
+	if current.Processed {
+		return false, nil
+	}
+	if current.Status != "RECEIVED" && current.Status != "FAILED" {
+		return false, nil
+	}
+	current.Status = "PROCESSING"
+	current.Phase = phase
+	current.MessageID = messageID
+	current.PayloadHash = payloadHash
+	current.Attempts += 1
+	return true, nil
+}
+
+func (r *fakeEventLogRepo) GetByID(_ context.Context, idempotencyKey string) (*entities.EventLog, error) {
+	if r.stored == nil {
+		return nil, nil
+	}
+	val, ok := r.stored[idempotencyKey]
+	if !ok {
+		return nil, nil
+	}
+	copy := *val
+	return &copy, nil
+}
+
+func (r *fakeEventLogRepo) MarkCompleted(_ context.Context, idempotencyKey string, status string, warning string) error {
+	if r.stored == nil {
+		return nil
+	}
+	if current, ok := r.stored[idempotencyKey]; ok {
+		current.Status = status
+		current.Processed = true
+		current.ErrorSummary = warning
+	}
+	return nil
+}
+
+func (r *fakeEventLogRepo) MarkFailed(_ context.Context, idempotencyKey string, phase string, errSummary string) error {
+	if r.stored == nil {
+		return nil
+	}
+	if current, ok := r.stored[idempotencyKey]; ok {
+		current.Status = "FAILED"
+		current.Processed = false
+		current.Phase = phase
+		current.ErrorSummary = errSummary
+	}
+	return nil
+}
+
 func TestEvaluateAccepted(t *testing.T) {
-	uc := NewProcessOnOrderCreatedUseCase(testLogger(), nil, nil, nil)
+	uc := NewProcessOnOrderCreatedUseCase(testLogger(), nil, nil, nil, nil)
 	evt := dto.FalabellaEvent{Event: "onOrderCreated"}
 	evt.Payload.OrderID = "1146543495"
 
@@ -86,20 +164,19 @@ func TestEvaluateAccepted(t *testing.T) {
 func TestProcessSuccess(t *testing.T) {
 	thumb := "https://image"
 	fscClient := &fakeFSCClient{
-		order: ports.OrderResponse{OrderID: "1146543495", OrderNumber: "3228563253", Status: "pending"},
-		items: []ports.OrderItemResponse{
-			{OrderItemID: "157246712", SKU: "3516192124", Quantity: 1},
-		},
+		order:     ports.OrderResponse{OrderID: "1146543495", OrderNumber: "3228563253", Status: "pending"},
+		items:     []ports.OrderItemResponse{{OrderItemID: "157246712", SKU: "3516192124", Quantity: 1}},
 		thumbnail: &thumb,
 	}
 	orderRepo := &fakeOrderRepo{}
 	itemRepo := &fakeOrderItemRepo{}
-	uc := NewProcessOnOrderCreatedUseCase(testLogger(), fscClient, orderRepo, itemRepo)
+	eventRepo := &fakeEventLogRepo{markAllowed: true}
+	uc := NewProcessOnOrderCreatedUseCase(testLogger(), fscClient, orderRepo, itemRepo, eventRepo)
 
 	evt := dto.FalabellaEvent{Event: "onOrderCreated"}
 	evt.Payload.OrderID = "1146543495"
 
-	result, err := uc.Process(context.Background(), evt, "m-1")
+	result, err := uc.Process(context.Background(), evt, "m-1", "hash")
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
@@ -115,13 +192,39 @@ func TestProcessFailsOnCriticalDependency(t *testing.T) {
 	fscClient := &fakeFSCClient{orderErr: errors.New("fsc down")}
 	orderRepo := &fakeOrderRepo{}
 	itemRepo := &fakeOrderItemRepo{}
-	uc := NewProcessOnOrderCreatedUseCase(testLogger(), fscClient, orderRepo, itemRepo)
+	eventRepo := &fakeEventLogRepo{markAllowed: true}
+	uc := NewProcessOnOrderCreatedUseCase(testLogger(), fscClient, orderRepo, itemRepo, eventRepo)
 
 	evt := dto.FalabellaEvent{Event: "onOrderCreated"}
 	evt.Payload.OrderID = "1146543495"
 
-	_, err := uc.Process(context.Background(), evt, "m-1")
+	_, err := uc.Process(context.Background(), evt, "m-1", "hash")
 	if err == nil {
 		t.Fatal("expected critical error, got nil")
+	}
+}
+
+func TestProcessDuplicateIgnored(t *testing.T) {
+	fscClient := &fakeFSCClient{}
+	orderRepo := &fakeOrderRepo{}
+	itemRepo := &fakeOrderItemRepo{}
+	eventRepo := &fakeEventLogRepo{markAllowed: false, stored: map[string]*entities.EventLog{
+		"falabella:onOrderCreated:1146543495": {
+			ID:        "falabella:onOrderCreated:1146543495",
+			Processed: true,
+			Status:    "SUCCESS",
+		},
+	}}
+	uc := NewProcessOnOrderCreatedUseCase(testLogger(), fscClient, orderRepo, itemRepo, eventRepo)
+
+	evt := dto.FalabellaEvent{Event: "onOrderCreated"}
+	evt.Payload.OrderID = "1146543495"
+
+	result, err := uc.Process(context.Background(), evt, "m-2", "hash2")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if !result.Duplicate {
+		t.Fatal("expected duplicate result")
 	}
 }

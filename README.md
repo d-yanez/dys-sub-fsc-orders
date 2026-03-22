@@ -2,7 +2,7 @@
 
 Subscriber HTTP Push (Pub/Sub) para eventos de Falabella Seller Center.
 
-En esta etapa (PR3) el servicio implementa:
+En esta etapa (PR4) el servicio implementa:
 - bootstrap Go y estructura por capas
 - endpoint push `POST /`
 - parseo de envelope Pub/Sub (`message.data` base64)
@@ -10,6 +10,9 @@ En esta etapa (PR3) el servicio implementa:
 - filtro de `onOrderCreated`
 - cliente FSC (`/order`, `/orderItems`, `/sku`)
 - persistencia core en MongoDB (`orders`, `order_items`)
+- `event_logs` con idempotencia simplificada (`processed`, `status`, `attempts`)
+- duplicados por `eventType + orderId` ignorados con ACK `200`
+- retries habilitados para fallos criticos (`500`)
 - enriquecimiento de thumbnail por SKU (degradado a warning si falla)
 - punto preparado para validacion OIDC (`middleware` stub)
 
@@ -43,5 +46,4 @@ go test ./...
 ```
 
 ## Scope v1 pendiente (PRs siguientes)
-- `event_logs` + idempotencia + retries
 - Telegram final operativo

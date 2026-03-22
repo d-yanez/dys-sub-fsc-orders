@@ -46,8 +46,30 @@ func (r *fakeOrderItemRepo) UpsertMany(_ context.Context, _ []entities.OrderItem
 	return nil
 }
 
+type fakeEventLogRepo struct{}
+
+func (r *fakeEventLogRepo) EnsureReceived(_ context.Context, _ entities.EventLog) error {
+	return nil
+}
+
+func (r *fakeEventLogRepo) MarkProcessing(_ context.Context, _ string, _ string, _ string, _ string) (bool, error) {
+	return true, nil
+}
+
+func (r *fakeEventLogRepo) GetByID(_ context.Context, _ string) (*entities.EventLog, error) {
+	return nil, nil
+}
+
+func (r *fakeEventLogRepo) MarkCompleted(_ context.Context, _ string, _ string, _ string) error {
+	return nil
+}
+
+func (r *fakeEventLogRepo) MarkFailed(_ context.Context, _ string, _ string, _ string) error {
+	return nil
+}
+
 func TestHandleAcceptedOnOrderCreated(t *testing.T) {
-	uc := usecases.NewProcessOnOrderCreatedUseCase(handlerTestLogger(), &fakeFSCClient{}, &fakeOrderRepo{}, &fakeOrderItemRepo{})
+	uc := usecases.NewProcessOnOrderCreatedUseCase(handlerTestLogger(), &fakeFSCClient{}, &fakeOrderRepo{}, &fakeOrderItemRepo{}, &fakeEventLogRepo{})
 	h := NewPubSubPushHandler(handlerTestLogger(), uc)
 
 	eventJSON := `{"event":"onOrderCreated","payload":{"OrderId":"1146543495"}}`
@@ -67,7 +89,7 @@ func TestHandleAcceptedOnOrderCreated(t *testing.T) {
 }
 
 func TestHandleIgnoredMissingData(t *testing.T) {
-	uc := usecases.NewProcessOnOrderCreatedUseCase(handlerTestLogger(), &fakeFSCClient{}, &fakeOrderRepo{}, &fakeOrderItemRepo{})
+	uc := usecases.NewProcessOnOrderCreatedUseCase(handlerTestLogger(), &fakeFSCClient{}, &fakeOrderRepo{}, &fakeOrderItemRepo{}, &fakeEventLogRepo{})
 	h := NewPubSubPushHandler(handlerTestLogger(), uc)
 
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(`{"message":{"messageId":"m-1"}}`))
