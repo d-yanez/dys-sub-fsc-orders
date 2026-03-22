@@ -9,6 +9,7 @@ import (
 
 	"github.com/d-yanez/dys-sub-fsc-orders/internal/application/dto"
 	"github.com/d-yanez/dys-sub-fsc-orders/internal/application/usecases"
+	"github.com/d-yanez/dys-sub-fsc-orders/internal/platform/hash"
 )
 
 type PubSubPushHandler struct {
@@ -76,7 +77,8 @@ func (h *PubSubPushHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.useCase.Process(r.Context(), event, envelope.Message.MessageID)
+	payloadHash := hash.SHA256(raw)
+	result, err := h.useCase.Process(r.Context(), event, envelope.Message.MessageID, payloadHash)
 	if err != nil {
 		h.log.Error("order_processing_failed",
 			"messageId", envelope.Message.MessageID,
@@ -89,6 +91,16 @@ func (h *PubSubPushHandler) Handle(w http.ResponseWriter, r *http.Request) {
 			"status":  "failed",
 			"orderId": decision.OrderID,
 			"error":   "processing_failed",
+		})
+		return
+	}
+
+	if result.Duplicate {
+		h.respondJSON(w, http.StatusOK, map[string]any{
+			"ok":      true,
+			"status":  "duplicate_ignored",
+			"orderId": result.OrderID,
+			"reason":  result.Warning,
 		})
 		return
 	}

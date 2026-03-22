@@ -33,8 +33,9 @@ func main() {
 	fscClient := fsc.NewClient(cfg.FSCBaseURL, cfg.FSCAPIKey, time.Duration(cfg.HTTPTimeoutMS)*time.Millisecond)
 	orderRepo := mongoadapter.NewOrderRepository(mongoClient)
 	orderItemRepo := mongoadapter.NewOrderItemRepository(mongoClient)
+	eventLogRepo := mongoadapter.NewEventLogRepository(mongoClient)
 
-	processEventUseCase := usecases.NewProcessOnOrderCreatedUseCase(appLogger, fscClient, orderRepo, orderItemRepo)
+	processEventUseCase := usecases.NewProcessOnOrderCreatedUseCase(appLogger, fscClient, orderRepo, orderItemRepo, eventLogRepo)
 	pubSubHandler := handlers.NewPubSubPushHandler(appLogger, processEventUseCase)
 
 	router := httpint.NewRouter(cfg, appLogger, pubSubHandler)
