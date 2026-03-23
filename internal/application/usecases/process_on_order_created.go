@@ -28,16 +28,24 @@ type ProcessOnOrderCreatedUseCase struct {
 	orderRepo     ports.OrderRepository
 	orderItemRepo ports.OrderItemRepository
 	eventLogRepo  ports.EventLogRepository
+	telegram      ports.TelegramNotifier
 }
 
 type ProcessResult struct {
-	Status      enums.ResultStatus
-	EventType   string
-	OrderID     string
-	OrderNumber string
-	ItemsCount  int
-	Warning     string
-	Duplicate   bool
+	Status           enums.ResultStatus
+	EventType        string
+	OrderID          string
+	OrderNumber      string
+	ItemsCount       int
+	Warning          string
+	Duplicate        bool
+	Phase            string
+	MessageID        string
+	FirstOrderItemID string
+	FirstSKU         string
+	FirstItemName    string
+	ThumbnailURL     string
+	ErrorSummary     string
 }
 
 func NewProcessOnOrderCreatedUseCase(
@@ -46,6 +54,7 @@ func NewProcessOnOrderCreatedUseCase(
 	orderRepo ports.OrderRepository,
 	orderItemRepo ports.OrderItemRepository,
 	eventLogRepo ports.EventLogRepository,
+	telegram ports.TelegramNotifier,
 ) *ProcessOnOrderCreatedUseCase {
 	return &ProcessOnOrderCreatedUseCase{
 		log:           log,
@@ -53,6 +62,7 @@ func NewProcessOnOrderCreatedUseCase(
 		orderRepo:     orderRepo,
 		orderItemRepo: orderItemRepo,
 		eventLogRepo:  eventLogRepo,
+		telegram:      telegram,
 	}
 }
 
@@ -81,6 +91,8 @@ func (u *ProcessOnOrderCreatedUseCase) Process(ctx context.Context, event dto.Fa
 			EventType: decision.EventType,
 			OrderID:   decision.OrderID,
 			Warning:   decision.Reason,
+			MessageID: messageID,
+			Phase:     "IGNORED",
 		}, nil
 	}
 
@@ -128,20 +140,34 @@ func (u *ProcessOnOrderCreatedUseCase) Process(ctx context.Context, event dto.Fa
 				OrderID:   decision.OrderID,
 				Warning:   "duplicate_event_ignored",
 				Duplicate: true,
+				MessageID: messageID,
+				Phase:     "DUPLICATE",
 			}, nil
 		}
-		return ProcessResult{}, fmt.Errorf("event_in_processing_or_not_ready_for_retry")
+		return ProcessResult{
+			EventType:    decision.EventType,
+			OrderID:      decision.OrderID,
+			MessageID:    messageID,
+			Phase:        "PROCESSING",
+			ErrorSummary: "event_in_processing_or_not_ready_for_retry",
+		}, fmt.Errorf("event_in_processing_or_not_ready_for_retry")
+	}
+
+	baseResult := ProcessResult{
+		EventType: decision.EventType,
+		OrderID:   decision.OrderID,
+		MessageID: messageID,
 	}
 
 	orderResp, err := u.fscClient.GetOrder(ctx, decision.OrderID)
 	if err != nil {
 		_ = u.eventLogRepo.MarkFailed(ctx, idempotencyKey, "FETCH_ORDER", err.Error())
-		return ProcessResult{}, err
+		return u.fail(ctx, baseResult, "FETCH_ORDER", err)
 	}
 	itemsResp, err := u.fscClient.GetOrderItems(ctx, decision.OrderID)
 	if err != nil {
 		_ = u.eventLogRepo.MarkFailed(ctx, idempotencyKey, "FETCH_ORDER_ITEMS", err.Error())
-		return ProcessResult{}, err
+		return u.fail(ctx, baseResult, "FETCH_ORDER_ITEMS", err)
 	}
 
 	now = time.Now().UTC()
@@ -165,7 +191,8 @@ func (u *ProcessOnOrderCreatedUseCase) Process(ctx context.Context, event dto.Fa
 
 	if err := u.orderRepo.Upsert(ctx, order); err != nil {
 		_ = u.eventLogRepo.MarkFailed(ctx, idempotencyKey, "PERSIST_ORDER", err.Error())
-		return ProcessResult{}, err
+		baseResult.OrderNumber = order.OrderNumber
+		return u.fail(ctx, baseResult, "PERSIST_ORDER", err)
 	}
 
 	partialWarning := ""
@@ -211,11 +238,21 @@ func (u *ProcessOnOrderCreatedUseCase) Process(ctx context.Context, event dto.Fa
 				UpdatedAt: now,
 			},
 		})
+
+		if baseResult.FirstOrderItemID == "" {
+			baseResult.FirstOrderItemID = itemID
+			baseResult.FirstSKU = sku
+			baseResult.FirstItemName = strings.TrimSpace(it.Name)
+			if thumbnail != nil {
+				baseResult.ThumbnailURL = *thumbnail
+			}
+		}
 	}
 
 	if err := u.orderItemRepo.UpsertMany(ctx, orderItems); err != nil {
 		_ = u.eventLogRepo.MarkFailed(ctx, idempotencyKey, "PERSIST_ORDER_ITEMS", err.Error())
-		return ProcessResult{}, err
+		baseResult.OrderNumber = order.OrderNumber
+		return u.fail(ctx, baseResult, "PERSIST_ORDER_ITEMS", err)
 	}
 
 	status := enums.ResultSuccess
@@ -223,17 +260,99 @@ func (u *ProcessOnOrderCreatedUseCase) Process(ctx context.Context, event dto.Fa
 		status = enums.ResultPartialSuccess
 	}
 	if err := u.eventLogRepo.MarkCompleted(ctx, idempotencyKey, string(status), partialWarning); err != nil {
-		return ProcessResult{}, err
+		baseResult.OrderNumber = order.OrderNumber
+		return u.fail(ctx, baseResult, "FINALIZE_EVENT_LOG", err)
 	}
 
-	return ProcessResult{
-		Status:      status,
-		EventType:   decision.EventType,
-		OrderID:     decision.OrderID,
-		OrderNumber: order.OrderNumber,
-		ItemsCount:  len(orderItems),
-		Warning:     partialWarning,
-	}, nil
+	result := ProcessResult{
+		Status:           status,
+		EventType:        decision.EventType,
+		OrderID:          decision.OrderID,
+		OrderNumber:      order.OrderNumber,
+		ItemsCount:       len(orderItems),
+		Warning:          partialWarning,
+		MessageID:        messageID,
+		Phase:            "COMPLETED",
+		FirstOrderItemID: baseResult.FirstOrderItemID,
+		FirstSKU:         baseResult.FirstSKU,
+		FirstItemName:    baseResult.FirstItemName,
+		ThumbnailURL:     baseResult.ThumbnailURL,
+	}
+	u.notifyFinalNonBlocking(ctx, result, "")
+	return result, nil
+}
+
+func (u *ProcessOnOrderCreatedUseCase) fail(ctx context.Context, base ProcessResult, phase string, err error) (ProcessResult, error) {
+	result := base
+	result.Status = enums.ResultFailed
+	result.Phase = phase
+	result.ErrorSummary = err.Error()
+	u.notifyFinalNonBlocking(ctx, result, phase)
+	return result, err
+}
+
+func (u *ProcessOnOrderCreatedUseCase) notifyFinalNonBlocking(ctx context.Context, result ProcessResult, failedPhase string) {
+	if u.telegram == nil || result.Duplicate {
+		return
+	}
+	msg := buildTelegramMessage(result, failedPhase)
+	if err := u.telegram.Send(ctx, msg); err != nil {
+		u.log.Error("telegram_notification_failed",
+			"orderId", result.OrderID,
+			"eventType", result.EventType,
+			"status", result.Status,
+			"phase", result.Phase,
+			"error", err.Error(),
+		)
+	}
+}
+
+func buildTelegramMessage(result ProcessResult, failedPhase string) ports.TelegramMessage {
+	lines := make([]string, 0, 16)
+	switch result.Status {
+	case enums.ResultSuccess:
+		lines = append(lines, "Nueva orden Falabella procesada")
+	case enums.ResultPartialSuccess:
+		lines = append(lines, "Orden Falabella procesada con observaciones")
+	default:
+		lines = append(lines, "Orden Falabella no procesada")
+	}
+	lines = append(lines,
+		"eventType: "+result.EventType,
+		"orderId: "+result.OrderID,
+		"orderNumber: "+fallback(result.OrderNumber, "N/A"),
+		"itemsPersistidos: "+fmt.Sprintf("%d", result.ItemsCount),
+		"orderItemId: "+fallback(result.FirstOrderItemID, "N/A"),
+		"sku: "+fallback(result.FirstSKU, "N/A"),
+		"resultado: "+string(result.Status),
+		"messageId: "+fallback(result.MessageID, "N/A"),
+		"phase: "+fallback(result.Phase, "N/A"),
+	)
+	if result.FirstItemName != "" {
+		lines = append(lines, "item: "+result.FirstItemName)
+	}
+	if failedPhase != "" {
+		lines = append(lines, "failedPhase: "+failedPhase)
+	}
+	if result.Warning != "" {
+		lines = append(lines, "warning: "+result.Warning)
+	}
+	if result.ErrorSummary != "" {
+		lines = append(lines, "error: "+result.ErrorSummary)
+	}
+	lines = append(lines, "timestamp: "+time.Now().Format(time.RFC3339))
+	return ports.TelegramMessage{
+		Text:           strings.Join(lines, "\n"),
+		PhotoURL:       result.ThumbnailURL,
+		DisablePreview: true,
+	}
+}
+
+func fallback(v string, def string) string {
+	if strings.TrimSpace(v) == "" {
+		return def
+	}
+	return v
 }
 
 func parseTime(raw string) *time.Time {

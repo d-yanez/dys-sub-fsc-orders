@@ -14,6 +14,7 @@ En esta etapa (PR4) el servicio implementa:
 - duplicados por `eventType + orderId` ignorados con ACK `200`
 - retries habilitados para fallos criticos (`500`)
 - enriquecimiento de thumbnail por SKU (degradado a warning si falla)
+- notificacion Telegram final (`SUCCESS`, `PARTIAL_SUCCESS`, `FAILED`) con switch
 - punto preparado para validacion OIDC (`middleware` stub)
 
 ## Endpoints
@@ -34,6 +35,10 @@ En esta etapa (PR4) el servicio implementa:
 - `DYS_API_FSC_BASE_URL` (default `https://dys-api-fsc-785293986978.us-central1.run.app`)
 - `DYS_API_FSC_API_KEY` (recomendada)
 - `HTTP_TIMEOUT_MS_FSC` (default `5000`)
+- `SWITCH_FSC_ORDER_TELEGRAM` (`true|false`, default `false`)
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_CHAT_ID`
+- `TELEGRAM_TIMEOUT_MS` (default `5000`)
 
 ## Ejecutar local
 ```bash
@@ -46,4 +51,4 @@ go test ./...
 ```
 
 ## Scope v1 pendiente (PRs siguientes)
-- Telegram final operativo
+- cierre deploy productivo

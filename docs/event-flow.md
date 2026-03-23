@@ -14,3 +14,4 @@
 12. Persiste `orders` y `order_items` en MongoDB.
 13. Marca `event_logs` como `SUCCESS` o `PARTIAL_SUCCESS` con `processed=true`.
 14. Si falla una dependencia critica (FSC order/items o Mongo), marca `FAILED`, `processed=false` y responde `500` (retry habilitado).
+15. Envia Telegram final segun resultado (`SUCCESS`, `PARTIAL_SUCCESS`, `FAILED`) sin romper flujo principal.

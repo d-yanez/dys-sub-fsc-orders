@@ -15,38 +15,46 @@ const (
 )
 
 type Config struct {
-	Port             string
-	ServiceName      string
-	Environment      string
-	LogLevel         string
-	SubscriptionName string
-	OIDCValidation   bool
-	OIDCAudience     string
-	OIDCAllowedEmail string
-	MongoURI         string
-	MongoDBName      string
-	FSCBaseURL       string
-	FSCAPIKey        string
-	HTTPTimeoutMS    int
+	Port                   string
+	ServiceName            string
+	Environment            string
+	LogLevel               string
+	SubscriptionName       string
+	OIDCValidation         bool
+	OIDCAudience           string
+	OIDCAllowedEmail       string
+	MongoURI               string
+	MongoDBName            string
+	FSCBaseURL             string
+	FSCAPIKey              string
+	HTTPTimeoutMS          int
+	SwitchFSCOrderTelegram bool
+	TelegramBotToken       string
+	TelegramChatID         string
+	TelegramTimeoutMS      int
 }
 
 func Load() Config {
 	loadDotEnv(".env")
 
 	return Config{
-		Port:             getOrDefault("PORT", defaultPort),
-		ServiceName:      getOrDefault("SERVICE_NAME", defaultServiceName),
-		Environment:      getOrDefault("ENVIRONMENT", defaultEnvironment),
-		LogLevel:         strings.ToUpper(getOrDefault("LOG_LEVEL", defaultLogLevel)),
-		SubscriptionName: strings.TrimSpace(os.Getenv("PUBSUB_SUBSCRIPTION_NAME")),
-		OIDCValidation:   getBoolOrDefault("OIDC_VALIDATION_ENABLED", false),
-		OIDCAudience:     strings.TrimSpace(os.Getenv("OIDC_AUDIENCE")),
-		OIDCAllowedEmail: strings.TrimSpace(os.Getenv("OIDC_ALLOWED_EMAIL")),
-		MongoURI:         strings.TrimSpace(os.Getenv("MONGODB_URI")),
-		MongoDBName:      getOrDefault("MONGODB_DB_NAME", "falabellaDB"),
-		FSCBaseURL:       getOrDefault("DYS_API_FSC_BASE_URL", "https://dys-api-fsc-785293986978.us-central1.run.app"),
-		FSCAPIKey:        strings.TrimSpace(os.Getenv("DYS_API_FSC_API_KEY")),
-		HTTPTimeoutMS:    getIntOrDefault("HTTP_TIMEOUT_MS_FSC", 5000),
+		Port:                   getOrDefault("PORT", defaultPort),
+		ServiceName:            getOrDefault("SERVICE_NAME", defaultServiceName),
+		Environment:            getOrDefault("ENVIRONMENT", defaultEnvironment),
+		LogLevel:               strings.ToUpper(getOrDefault("LOG_LEVEL", defaultLogLevel)),
+		SubscriptionName:       strings.TrimSpace(os.Getenv("PUBSUB_SUBSCRIPTION_NAME")),
+		OIDCValidation:         getBoolOrDefault("OIDC_VALIDATION_ENABLED", false),
+		OIDCAudience:           strings.TrimSpace(os.Getenv("OIDC_AUDIENCE")),
+		OIDCAllowedEmail:       strings.TrimSpace(os.Getenv("OIDC_ALLOWED_EMAIL")),
+		MongoURI:               strings.TrimSpace(os.Getenv("MONGODB_URI")),
+		MongoDBName:            getOrDefault("MONGODB_DB_NAME", "falabellaDB"),
+		FSCBaseURL:             getOrDefault("DYS_API_FSC_BASE_URL", "https://dys-api-fsc-785293986978.us-central1.run.app"),
+		FSCAPIKey:              strings.TrimSpace(os.Getenv("DYS_API_FSC_API_KEY")),
+		HTTPTimeoutMS:          getIntOrDefault("HTTP_TIMEOUT_MS_FSC", 5000),
+		SwitchFSCOrderTelegram: getBoolOrDefault("SWITCH_FSC_ORDER_TELEGRAM", false),
+		TelegramBotToken:       strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN")),
+		TelegramChatID:         strings.TrimSpace(os.Getenv("TELEGRAM_CHAT_ID")),
+		TelegramTimeoutMS:      getIntOrDefault("TELEGRAM_TIMEOUT_MS", 5000),
 	}
 }
 

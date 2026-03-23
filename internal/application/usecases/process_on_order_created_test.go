@@ -77,6 +77,16 @@ type fakeEventLogRepo struct {
 	markAllowed bool
 }
 
+type fakeTelegramNotifier struct {
+	sent []ports.TelegramMessage
+	err  error
+}
+
+func (n *fakeTelegramNotifier) Send(_ context.Context, msg ports.TelegramMessage) error {
+	n.sent = append(n.sent, msg)
+	return n.err
+}
+
 func (r *fakeEventLogRepo) EnsureReceived(_ context.Context, log entities.EventLog) error {
 	if r.stored == nil {
 		r.stored = map[string]*entities.EventLog{}
@@ -151,7 +161,7 @@ func (r *fakeEventLogRepo) MarkFailed(_ context.Context, idempotencyKey string, 
 }
 
 func TestEvaluateAccepted(t *testing.T) {
-	uc := NewProcessOnOrderCreatedUseCase(testLogger(), nil, nil, nil, nil)
+	uc := NewProcessOnOrderCreatedUseCase(testLogger(), nil, nil, nil, nil, nil)
 	evt := dto.FalabellaEvent{Event: "onOrderCreated"}
 	evt.Payload.OrderID = "1146543495"
 
@@ -171,7 +181,8 @@ func TestProcessSuccess(t *testing.T) {
 	orderRepo := &fakeOrderRepo{}
 	itemRepo := &fakeOrderItemRepo{}
 	eventRepo := &fakeEventLogRepo{markAllowed: true}
-	uc := NewProcessOnOrderCreatedUseCase(testLogger(), fscClient, orderRepo, itemRepo, eventRepo)
+	telegram := &fakeTelegramNotifier{}
+	uc := NewProcessOnOrderCreatedUseCase(testLogger(), fscClient, orderRepo, itemRepo, eventRepo, telegram)
 
 	evt := dto.FalabellaEvent{Event: "onOrderCreated"}
 	evt.Payload.OrderID = "1146543495"
@@ -186,6 +197,9 @@ func TestProcessSuccess(t *testing.T) {
 	if orderRepo.last.OrderNumber != "3228563253" {
 		t.Fatalf("unexpected order number: %s", orderRepo.last.OrderNumber)
 	}
+	if len(telegram.sent) != 1 {
+		t.Fatalf("expected telegram notification, got %d", len(telegram.sent))
+	}
 }
 
 func TestProcessFailsOnCriticalDependency(t *testing.T) {
@@ -193,7 +207,8 @@ func TestProcessFailsOnCriticalDependency(t *testing.T) {
 	orderRepo := &fakeOrderRepo{}
 	itemRepo := &fakeOrderItemRepo{}
 	eventRepo := &fakeEventLogRepo{markAllowed: true}
-	uc := NewProcessOnOrderCreatedUseCase(testLogger(), fscClient, orderRepo, itemRepo, eventRepo)
+	telegram := &fakeTelegramNotifier{}
+	uc := NewProcessOnOrderCreatedUseCase(testLogger(), fscClient, orderRepo, itemRepo, eventRepo, telegram)
 
 	evt := dto.FalabellaEvent{Event: "onOrderCreated"}
 	evt.Payload.OrderID = "1146543495"
@@ -201,6 +216,9 @@ func TestProcessFailsOnCriticalDependency(t *testing.T) {
 	_, err := uc.Process(context.Background(), evt, "m-1", "hash")
 	if err == nil {
 		t.Fatal("expected critical error, got nil")
+	}
+	if len(telegram.sent) != 1 {
+		t.Fatalf("expected failed telegram notification, got %d", len(telegram.sent))
 	}
 }
 
@@ -215,7 +233,8 @@ func TestProcessDuplicateIgnored(t *testing.T) {
 			Status:    "SUCCESS",
 		},
 	}}
-	uc := NewProcessOnOrderCreatedUseCase(testLogger(), fscClient, orderRepo, itemRepo, eventRepo)
+	telegram := &fakeTelegramNotifier{}
+	uc := NewProcessOnOrderCreatedUseCase(testLogger(), fscClient, orderRepo, itemRepo, eventRepo, telegram)
 
 	evt := dto.FalabellaEvent{Event: "onOrderCreated"}
 	evt.Payload.OrderID = "1146543495"
@@ -226,5 +245,8 @@ func TestProcessDuplicateIgnored(t *testing.T) {
 	}
 	if !result.Duplicate {
 		t.Fatal("expected duplicate result")
+	}
+	if len(telegram.sent) != 0 {
+		t.Fatalf("expected no telegram for duplicate, got %d", len(telegram.sent))
 	}
 }
