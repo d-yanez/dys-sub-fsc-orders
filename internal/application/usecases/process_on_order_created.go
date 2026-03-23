@@ -311,39 +311,40 @@ func buildTelegramMessage(result ProcessResult, failedPhase string) ports.Telegr
 	lines := make([]string, 0, 16)
 	switch result.Status {
 	case enums.ResultSuccess:
-		lines = append(lines, "Nueva orden Falabella procesada")
+		lines = append(lines, "<b>Nueva orden Falabella procesada</b>")
 	case enums.ResultPartialSuccess:
-		lines = append(lines, "Orden Falabella procesada con observaciones")
+		lines = append(lines, "<b>Orden Falabella procesada con observaciones</b>")
 	default:
-		lines = append(lines, "Orden Falabella no procesada")
+		lines = append(lines, "<b>Orden Falabella no procesada</b>")
 	}
 	lines = append(lines,
-		"eventType: "+result.EventType,
-		"orderId: "+result.OrderID,
-		"orderNumber: "+fallback(result.OrderNumber, "N/A"),
+		"eventType: "+htmlEsc(result.EventType),
+		"orderId: <code>"+htmlEsc(fallback(result.OrderID, "N/A"))+"</code>",
+		"orderNumber: <code>"+htmlEsc(fallback(result.OrderNumber, "N/A"))+"</code>",
 		"itemsPersistidos: "+fmt.Sprintf("%d", result.ItemsCount),
-		"orderItemId: "+fallback(result.FirstOrderItemID, "N/A"),
-		"sku: "+fallback(result.FirstSKU, "N/A"),
-		"resultado: "+string(result.Status),
-		"messageId: "+fallback(result.MessageID, "N/A"),
-		"phase: "+fallback(result.Phase, "N/A"),
+		"orderItemId: <code>"+htmlEsc(fallback(result.FirstOrderItemID, "N/A"))+"</code>",
+		"sku: <code>"+htmlEsc(fallback(result.FirstSKU, "N/A"))+"</code>",
+		"resultado: "+htmlEsc(string(result.Status)),
+		"messageId: <code>"+htmlEsc(fallback(result.MessageID, "N/A"))+"</code>",
+		"phase: "+htmlEsc(fallback(result.Phase, "N/A")),
 	)
 	if result.FirstItemName != "" {
-		lines = append(lines, "item: "+result.FirstItemName)
+		lines = append(lines, "item: "+htmlEsc(result.FirstItemName))
 	}
 	if failedPhase != "" {
-		lines = append(lines, "failedPhase: "+failedPhase)
+		lines = append(lines, "failedPhase: "+htmlEsc(failedPhase))
 	}
 	if result.Warning != "" {
-		lines = append(lines, "warning: "+result.Warning)
+		lines = append(lines, "warning: "+htmlEsc(result.Warning))
 	}
 	if result.ErrorSummary != "" {
-		lines = append(lines, "error: "+result.ErrorSummary)
+		lines = append(lines, "error: "+htmlEsc(result.ErrorSummary))
 	}
 	lines = append(lines, "timestamp: "+time.Now().Format(time.RFC3339))
 	return ports.TelegramMessage{
 		Text:           strings.Join(lines, "\n"),
 		PhotoURL:       result.ThumbnailURL,
+		ParseMode:      "HTML",
 		DisablePreview: true,
 	}
 }
@@ -353,6 +354,16 @@ func fallback(v string, def string) string {
 		return def
 	}
 	return v
+}
+
+func htmlEsc(v string) string {
+	replacer := strings.NewReplacer(
+		"&", "&amp;",
+		"<", "&lt;",
+		">", "&gt;",
+		"\"", "&quot;",
+	)
+	return replacer.Replace(v)
 }
 
 func parseTime(raw string) *time.Time {
