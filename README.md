@@ -52,3 +52,4 @@ go test ./...
 
 ## Scope v1 pendiente (PRs siguientes)
 - cierre deploy productivo
+
