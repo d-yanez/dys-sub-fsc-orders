@@ -75,7 +75,7 @@ func NewProcessOnOrderCreatedUseCase(
 
 func (u *ProcessOnOrderCreatedUseCase) Evaluate(event dto.FalabellaEvent) ProcessDecision {
 	eventType := strings.TrimSpace(event.EffectiveEventType())
-	orderID := strings.TrimSpace(event.Payload.OrderID)
+	orderID := strings.TrimSpace(string(event.Payload.OrderID))
 
 	if eventType == "" {
 		return ProcessDecision{ShouldProcess: false, EventType: eventType, OrderID: orderID, Reason: "missing_event_type"}

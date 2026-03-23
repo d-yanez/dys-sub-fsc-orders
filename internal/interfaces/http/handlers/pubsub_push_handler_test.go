@@ -109,3 +109,23 @@ func TestHandleIgnoredMissingData(t *testing.T) {
 		t.Fatalf("expected ignored response, got body=%s", rec.Body.String())
 	}
 }
+
+func TestHandleAcceptedOnOrderCreatedWithNumericOrderID(t *testing.T) {
+	uc := usecases.NewProcessOnOrderCreatedUseCase(handlerTestLogger(), &fakeFSCClient{}, &fakeOrderRepo{}, &fakeOrderItemRepo{}, &fakeEventLogRepo{}, &fakeTelegramNotifier{}, "")
+	h := NewPubSubPushHandler(handlerTestLogger(), uc)
+
+	eventJSON := `{"event":"onOrderCreated","payload":{"OrderId":1147107464}}`
+	data := base64.StdEncoding.EncodeToString([]byte(eventJSON))
+	body := `{"message":{"messageId":"m-2","data":"` + data + `"}}`
+
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(body))
+	rec := httptest.NewRecorder()
+	h.Handle(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte(`"status":"SUCCESS"`)) {
+		t.Fatalf("expected SUCCESS response, got body=%s", rec.Body.String())
+	}
+}
