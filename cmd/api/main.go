@@ -9,6 +9,7 @@ import (
 	"github.com/d-yanez/dys-sub-fsc-orders/internal/application/usecases"
 	"github.com/d-yanez/dys-sub-fsc-orders/internal/infrastructure/fsc"
 	mongoadapter "github.com/d-yanez/dys-sub-fsc-orders/internal/infrastructure/mongo"
+	telegramadapter "github.com/d-yanez/dys-sub-fsc-orders/internal/infrastructure/telegram"
 	httpint "github.com/d-yanez/dys-sub-fsc-orders/internal/interfaces/http"
 	"github.com/d-yanez/dys-sub-fsc-orders/internal/interfaces/http/handlers"
 	"github.com/d-yanez/dys-sub-fsc-orders/internal/platform/config"
@@ -34,8 +35,21 @@ func main() {
 	orderRepo := mongoadapter.NewOrderRepository(mongoClient)
 	orderItemRepo := mongoadapter.NewOrderItemRepository(mongoClient)
 	eventLogRepo := mongoadapter.NewEventLogRepository(mongoClient)
+	telegramClient := telegramadapter.NewClient(
+		cfg.SwitchFSCOrderTelegram,
+		cfg.TelegramBotToken,
+		cfg.TelegramChatID,
+		time.Duration(cfg.TelegramTimeoutMS)*time.Millisecond,
+	)
 
-	processEventUseCase := usecases.NewProcessOnOrderCreatedUseCase(appLogger, fscClient, orderRepo, orderItemRepo, eventLogRepo)
+	processEventUseCase := usecases.NewProcessOnOrderCreatedUseCase(
+		appLogger,
+		fscClient,
+		orderRepo,
+		orderItemRepo,
+		eventLogRepo,
+		telegramClient,
+	)
 	pubSubHandler := handlers.NewPubSubPushHandler(appLogger, processEventUseCase)
 
 	router := httpint.NewRouter(cfg, appLogger, pubSubHandler)

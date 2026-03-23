@@ -10,3 +10,5 @@
 - `event_logs` con ciclo de vida `RECEIVED -> PROCESSING -> SUCCESS|PARTIAL_SUCCESS|FAILED`.
 - Idempotencia simplificada v1 por `eventType + orderId`.
 - Duplicados procesados se ignoran (`200`) sin reproceso.
+- Telegram final del subscriber con formato operativo para `SUCCESS|PARTIAL_SUCCESS|FAILED`.
+- `SWITCH_FSC_ORDER_TELEGRAM` para habilitar/deshabilitar notificaciones sin afectar procesamiento principal.

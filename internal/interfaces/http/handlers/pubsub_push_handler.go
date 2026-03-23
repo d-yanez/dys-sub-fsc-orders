@@ -84,13 +84,17 @@ func (h *PubSubPushHandler) Handle(w http.ResponseWriter, r *http.Request) {
 			"messageId", envelope.Message.MessageID,
 			"eventType", decision.EventType,
 			"orderId", decision.OrderID,
+			"phase", result.Phase,
 			"error", err.Error(),
 		)
 		h.respondJSON(w, http.StatusInternalServerError, map[string]any{
-			"ok":      false,
-			"status":  "failed",
-			"orderId": decision.OrderID,
-			"error":   "processing_failed",
+			"ok":           false,
+			"status":       "failed",
+			"orderId":      decision.OrderID,
+			"eventType":    decision.EventType,
+			"phase":        result.Phase,
+			"error":        "processing_failed",
+			"errorSummary": result.ErrorSummary,
 		})
 		return
 	}
