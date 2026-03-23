@@ -28,6 +28,7 @@ type Config struct {
 	FSCBaseURL             string
 	FSCAPIKey              string
 	HTTPTimeoutMS          int
+	StockViewBaseURL       string
 	SwitchFSCOrderTelegram bool
 	TelegramBotToken       string
 	TelegramChatID         string
@@ -51,6 +52,7 @@ func Load() Config {
 		FSCBaseURL:             getOrDefault("DYS_API_FSC_BASE_URL", "https://dys-api-fsc-785293986978.us-central1.run.app"),
 		FSCAPIKey:              strings.TrimSpace(os.Getenv("DYS_API_FSC_API_KEY")),
 		HTTPTimeoutMS:          getIntOrDefault("HTTP_TIMEOUT_MS_FSC", 5000),
+		StockViewBaseURL:       getOrDefault("STOCK_VIEW_BASE_URL", "https://dy-api-utils-785293986978.us-central1.run.app/stock/view"),
 		SwitchFSCOrderTelegram: getBoolOrDefault("SWITCH_FSC_ORDER_TELEGRAM", false),
 		TelegramBotToken:       strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN")),
 		TelegramChatID:         strings.TrimSpace(os.Getenv("TELEGRAM_CHAT_ID")),

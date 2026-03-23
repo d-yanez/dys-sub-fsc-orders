@@ -49,6 +49,7 @@ func main() {
 		orderItemRepo,
 		eventLogRepo,
 		telegramClient,
+		cfg.StockViewBaseURL,
 	)
 	pubSubHandler := handlers.NewPubSubPushHandler(appLogger, processEventUseCase)
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"strings"
 	"time"
 
@@ -29,6 +30,7 @@ type ProcessOnOrderCreatedUseCase struct {
 	orderItemRepo ports.OrderItemRepository
 	eventLogRepo  ports.EventLogRepository
 	telegram      ports.TelegramNotifier
+	stockViewBase string
 }
 
 type ProcessResult struct {
@@ -55,7 +57,11 @@ func NewProcessOnOrderCreatedUseCase(
 	orderItemRepo ports.OrderItemRepository,
 	eventLogRepo ports.EventLogRepository,
 	telegram ports.TelegramNotifier,
+	stockViewBase string,
 ) *ProcessOnOrderCreatedUseCase {
+	if strings.TrimSpace(stockViewBase) == "" {
+		stockViewBase = "https://dy-api-utils-785293986978.us-central1.run.app/stock/view"
+	}
 	return &ProcessOnOrderCreatedUseCase{
 		log:           log,
 		fscClient:     fscClient,
@@ -63,6 +69,7 @@ func NewProcessOnOrderCreatedUseCase(
 		orderItemRepo: orderItemRepo,
 		eventLogRepo:  eventLogRepo,
 		telegram:      telegram,
+		stockViewBase: stockViewBase,
 	}
 }
 
@@ -295,7 +302,7 @@ func (u *ProcessOnOrderCreatedUseCase) notifyFinalNonBlocking(ctx context.Contex
 	if u.telegram == nil || result.Duplicate {
 		return
 	}
-	msg := buildTelegramMessage(result, failedPhase)
+	msg := buildTelegramMessage(result, failedPhase, u.stockViewBase)
 	if err := u.telegram.Send(ctx, msg); err != nil {
 		u.log.Error("telegram_notification_failed",
 			"orderId", result.OrderID,
@@ -307,7 +314,7 @@ func (u *ProcessOnOrderCreatedUseCase) notifyFinalNonBlocking(ctx context.Contex
 	}
 }
 
-func buildTelegramMessage(result ProcessResult, failedPhase string) ports.TelegramMessage {
+func buildTelegramMessage(result ProcessResult, failedPhase string, stockViewBase string) ports.TelegramMessage {
 	lines := make([]string, 0, 16)
 	switch result.Status {
 	case enums.ResultSuccess:
@@ -340,6 +347,9 @@ func buildTelegramMessage(result ProcessResult, failedPhase string) ports.Telegr
 	if result.ErrorSummary != "" {
 		lines = append(lines, "error: "+htmlEsc(result.ErrorSummary))
 	}
+	if stockViewURL := buildStockViewURL(stockViewBase, result.FirstSKU); stockViewURL != "" {
+		lines = append(lines, `ver stock bodega: <a href="`+htmlEsc(stockViewURL)+`">Ver stock bodega</a>`)
+	}
 	lines = append(lines, "timestamp: "+time.Now().Format(time.RFC3339))
 	return ports.TelegramMessage{
 		Text:           strings.Join(lines, "\n"),
@@ -347,6 +357,15 @@ func buildTelegramMessage(result ProcessResult, failedPhase string) ports.Telegr
 		ParseMode:      "HTML",
 		DisablePreview: true,
 	}
+}
+
+func buildStockViewURL(base, sku string) string {
+	base = strings.TrimRight(strings.TrimSpace(base), "/")
+	sku = strings.TrimSpace(sku)
+	if base == "" || sku == "" {
+		return ""
+	}
+	return base + "/" + url.PathEscape(sku)
 }
 
 func fallback(v string, def string) string {

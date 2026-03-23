@@ -35,6 +35,7 @@ En esta etapa (PR4) el servicio implementa:
 - `DYS_API_FSC_BASE_URL` (default `https://dys-api-fsc-785293986978.us-central1.run.app`)
 - `DYS_API_FSC_API_KEY` (recomendada)
 - `HTTP_TIMEOUT_MS_FSC` (default `5000`)
+- `STOCK_VIEW_BASE_URL` (default `https://dy-api-utils-785293986978.us-central1.run.app/stock/view`)
 - `SWITCH_FSC_ORDER_TELEGRAM` (`true|false`, default `false`)
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`
@@ -52,6 +53,5 @@ go test ./...
 
 ## Scope v1 pendiente (PRs siguientes)
 - cierre deploy productivo 
-
 
 

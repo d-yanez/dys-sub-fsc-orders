@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.1] - 2026-03-23
+- Telegram subscriber ahora agrega link operativo por SKU al final del mensaje: `Ver stock bodega`.
+- Nuevo env `STOCK_VIEW_BASE_URL` con default `https://dy-api-utils-785293986978.us-central1.run.app/stock/view`.
+- Link construido de forma segura con `PathEscape` del SKU y omision cuando no hay SKU.
+- Tests unitarios agregados para inclusion/omision/escape del link.
+
 ## [0.1.0] - 2026-03-22
 - Scaffold inicial de `dys-sub-fsc-orders`.
 - Estructura clean por capas (`domain`, `application`, `interfaces`, `infrastructure`, `platform`).

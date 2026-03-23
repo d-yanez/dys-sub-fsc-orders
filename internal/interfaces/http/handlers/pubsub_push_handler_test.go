@@ -75,7 +75,7 @@ func (n *fakeTelegramNotifier) Send(_ context.Context, _ ports.TelegramMessage) 
 }
 
 func TestHandleAcceptedOnOrderCreated(t *testing.T) {
-	uc := usecases.NewProcessOnOrderCreatedUseCase(handlerTestLogger(), &fakeFSCClient{}, &fakeOrderRepo{}, &fakeOrderItemRepo{}, &fakeEventLogRepo{}, &fakeTelegramNotifier{})
+	uc := usecases.NewProcessOnOrderCreatedUseCase(handlerTestLogger(), &fakeFSCClient{}, &fakeOrderRepo{}, &fakeOrderItemRepo{}, &fakeEventLogRepo{}, &fakeTelegramNotifier{}, "")
 	h := NewPubSubPushHandler(handlerTestLogger(), uc)
 
 	eventJSON := `{"event":"onOrderCreated","payload":{"OrderId":"1146543495"}}`
@@ -95,7 +95,7 @@ func TestHandleAcceptedOnOrderCreated(t *testing.T) {
 }
 
 func TestHandleIgnoredMissingData(t *testing.T) {
-	uc := usecases.NewProcessOnOrderCreatedUseCase(handlerTestLogger(), &fakeFSCClient{}, &fakeOrderRepo{}, &fakeOrderItemRepo{}, &fakeEventLogRepo{}, &fakeTelegramNotifier{})
+	uc := usecases.NewProcessOnOrderCreatedUseCase(handlerTestLogger(), &fakeFSCClient{}, &fakeOrderRepo{}, &fakeOrderItemRepo{}, &fakeEventLogRepo{}, &fakeTelegramNotifier{}, "")
 	h := NewPubSubPushHandler(handlerTestLogger(), uc)
 
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(`{"message":{"messageId":"m-1"}}`))

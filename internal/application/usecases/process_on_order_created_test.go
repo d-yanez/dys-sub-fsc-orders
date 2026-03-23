@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 
 	"github.com/d-yanez/dys-sub-fsc-orders/internal/application/dto"
@@ -161,7 +162,7 @@ func (r *fakeEventLogRepo) MarkFailed(_ context.Context, idempotencyKey string, 
 }
 
 func TestEvaluateAccepted(t *testing.T) {
-	uc := NewProcessOnOrderCreatedUseCase(testLogger(), nil, nil, nil, nil, nil)
+	uc := NewProcessOnOrderCreatedUseCase(testLogger(), nil, nil, nil, nil, nil, "")
 	evt := dto.FalabellaEvent{Event: "onOrderCreated"}
 	evt.Payload.OrderID = "1146543495"
 
@@ -182,7 +183,7 @@ func TestProcessSuccess(t *testing.T) {
 	itemRepo := &fakeOrderItemRepo{}
 	eventRepo := &fakeEventLogRepo{markAllowed: true}
 	telegram := &fakeTelegramNotifier{}
-	uc := NewProcessOnOrderCreatedUseCase(testLogger(), fscClient, orderRepo, itemRepo, eventRepo, telegram)
+	uc := NewProcessOnOrderCreatedUseCase(testLogger(), fscClient, orderRepo, itemRepo, eventRepo, telegram, "https://dy-api-utils-785293986978.us-central1.run.app/stock/view")
 
 	evt := dto.FalabellaEvent{Event: "onOrderCreated"}
 	evt.Payload.OrderID = "1146543495"
@@ -200,6 +201,9 @@ func TestProcessSuccess(t *testing.T) {
 	if len(telegram.sent) != 1 {
 		t.Fatalf("expected telegram notification, got %d", len(telegram.sent))
 	}
+	if !strings.Contains(telegram.sent[0].Text, `ver stock bodega: <a href="https://dy-api-utils-785293986978.us-central1.run.app/stock/view/3516192124">Ver stock bodega</a>`) {
+		t.Fatalf("expected stock link in telegram message, got: %s", telegram.sent[0].Text)
+	}
 }
 
 func TestProcessFailsOnCriticalDependency(t *testing.T) {
@@ -208,7 +212,7 @@ func TestProcessFailsOnCriticalDependency(t *testing.T) {
 	itemRepo := &fakeOrderItemRepo{}
 	eventRepo := &fakeEventLogRepo{markAllowed: true}
 	telegram := &fakeTelegramNotifier{}
-	uc := NewProcessOnOrderCreatedUseCase(testLogger(), fscClient, orderRepo, itemRepo, eventRepo, telegram)
+	uc := NewProcessOnOrderCreatedUseCase(testLogger(), fscClient, orderRepo, itemRepo, eventRepo, telegram, "")
 
 	evt := dto.FalabellaEvent{Event: "onOrderCreated"}
 	evt.Payload.OrderID = "1146543495"
@@ -234,7 +238,7 @@ func TestProcessDuplicateIgnored(t *testing.T) {
 		},
 	}}
 	telegram := &fakeTelegramNotifier{}
-	uc := NewProcessOnOrderCreatedUseCase(testLogger(), fscClient, orderRepo, itemRepo, eventRepo, telegram)
+	uc := NewProcessOnOrderCreatedUseCase(testLogger(), fscClient, orderRepo, itemRepo, eventRepo, telegram, "")
 
 	evt := dto.FalabellaEvent{Event: "onOrderCreated"}
 	evt.Payload.OrderID = "1146543495"
@@ -248,5 +252,31 @@ func TestProcessDuplicateIgnored(t *testing.T) {
 	}
 	if len(telegram.sent) != 0 {
 		t.Fatalf("expected no telegram for duplicate, got %d", len(telegram.sent))
+	}
+}
+
+func TestBuildTelegramMessageWithoutSKUDoesNotIncludeStockLink(t *testing.T) {
+	msg := buildTelegramMessage(ProcessResult{
+		Status:    "SUCCESS",
+		EventType: "onOrderCreated",
+		OrderID:   "1146543495",
+		FirstSKU:  "",
+	}, "", "https://dy-api-utils-785293986978.us-central1.run.app/stock/view")
+
+	if strings.Contains(msg.Text, "Ver stock bodega") {
+		t.Fatalf("did not expect stock link when sku is empty, got: %s", msg.Text)
+	}
+}
+
+func TestBuildTelegramMessageEscapesSKUInStockLink(t *testing.T) {
+	msg := buildTelegramMessage(ProcessResult{
+		Status:    "SUCCESS",
+		EventType: "onOrderCreated",
+		OrderID:   "1146543495",
+		FirstSKU:  "ABC/123",
+	}, "", "https://dy-api-utils-785293986978.us-central1.run.app/stock/view/")
+
+	if !strings.Contains(msg.Text, `href="https://dy-api-utils-785293986978.us-central1.run.app/stock/view/ABC%2F123"`) {
+		t.Fatalf("expected escaped sku in stock link, got: %s", msg.Text)
 	}
 }
