@@ -206,6 +206,53 @@ func TestProcessSuccess(t *testing.T) {
 	}
 }
 
+func TestProcessSuccessTelegramIncludesAllPersistedItems(t *testing.T) {
+	fscClient := &fakeFSCClient{
+		order: ports.OrderResponse{
+			OrderID:     "1148513330",
+			OrderNumber: "3230404484",
+			Status:      "pending",
+		},
+		items: []ports.OrderItemResponse{
+			{OrderItemID: "160707404", SKU: "3737958358", Name: "Item 1", Quantity: 1},
+			{OrderItemID: "160707405", SKU: "3737958359", Name: "Item 2", Quantity: 1},
+			{OrderItemID: "160707406", SKU: "3737958360", Name: "Item 3", Quantity: 1},
+		},
+	}
+	orderRepo := &fakeOrderRepo{}
+	itemRepo := &fakeOrderItemRepo{}
+	eventRepo := &fakeEventLogRepo{markAllowed: true}
+	telegram := &fakeTelegramNotifier{}
+	uc := NewProcessOnOrderCreatedUseCase(testLogger(), fscClient, orderRepo, itemRepo, eventRepo, telegram, "https://dy-api-utils-785293986978.us-central1.run.app/stock/view")
+
+	evt := dto.FalabellaEvent{Event: "onOrderCreated"}
+	evt.Payload.OrderID = "1148513330"
+
+	result, err := uc.Process(context.Background(), evt, "m-3", "hash-3")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if result.ItemsCount != 3 {
+		t.Fatalf("expected items=3, got %d", result.ItemsCount)
+	}
+	if len(telegram.sent) != 1 {
+		t.Fatalf("expected telegram notification, got %d", len(telegram.sent))
+	}
+
+	msg := telegram.sent[0].Text
+	expectedSnippets := []string{
+		"itemsPersistidos: 3",
+		"1) orderItemId: <code>160707404</code> | sku: <code>3737958358</code>",
+		"2) orderItemId: <code>160707405</code> | sku: <code>3737958359</code>",
+		"3) orderItemId: <code>160707406</code> | sku: <code>3737958360</code>",
+	}
+	for _, snippet := range expectedSnippets {
+		if !strings.Contains(msg, snippet) {
+			t.Fatalf("expected snippet %q in telegram message, got: %s", snippet, msg)
+		}
+	}
+}
+
 func TestProcessFailsOnCriticalDependency(t *testing.T) {
 	fscClient := &fakeFSCClient{orderErr: errors.New("fsc down")}
 	orderRepo := &fakeOrderRepo{}

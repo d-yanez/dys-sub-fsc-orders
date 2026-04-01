@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.2] - 2026-04-01
+- Fix quirúrgico en notificación Telegram de `onOrderCreated`: ahora incluye el detalle de **todos** los ítems persistidos (orderItemId, sku, qty, nombre), no solo el primer ítem.
+- Se mantiene compatibilidad con el formato existente (`itemsPersistidos`, resumen y primer ítem) para no romper consumidores actuales.
+- Nuevo test: `TestProcessSuccessTelegramIncludesAllPersistedItems` para validar el caso de orden con 3 ítems.
+
 ## [0.1.1] - 2026-03-23
 - Telegram subscriber ahora agrega link operativo por SKU al final del mensaje: `Ver stock bodega`.
 - Nuevo env `STOCK_VIEW_BASE_URL` con default `https://dy-api-utils-785293986978.us-central1.run.app/stock/view`.

@@ -39,6 +39,7 @@ type ProcessResult struct {
 	OrderID          string
 	OrderNumber      string
 	ItemsCount       int
+	Items            []ResultItem
 	Warning          string
 	Duplicate        bool
 	Phase            string
@@ -48,6 +49,13 @@ type ProcessResult struct {
 	FirstItemName    string
 	ThumbnailURL     string
 	ErrorSummary     string
+}
+
+type ResultItem struct {
+	OrderItemID string
+	SKU         string
+	Name        string
+	Quantity    int
 }
 
 func NewProcessOnOrderCreatedUseCase(
@@ -204,6 +212,7 @@ func (u *ProcessOnOrderCreatedUseCase) Process(ctx context.Context, event dto.Fa
 
 	partialWarning := ""
 	orderItems := make([]entities.OrderItem, 0, len(itemsResp))
+	resultItems := make([]ResultItem, 0, len(itemsResp))
 	for _, it := range itemsResp {
 		itemID := strings.TrimSpace(it.OrderItemID)
 		if itemID == "" {
@@ -245,6 +254,12 @@ func (u *ProcessOnOrderCreatedUseCase) Process(ctx context.Context, event dto.Fa
 				UpdatedAt: now,
 			},
 		})
+		resultItems = append(resultItems, ResultItem{
+			OrderItemID: itemID,
+			SKU:         sku,
+			Name:        strings.TrimSpace(it.Name),
+			Quantity:    it.Quantity,
+		})
 
 		if baseResult.FirstOrderItemID == "" {
 			baseResult.FirstOrderItemID = itemID
@@ -277,6 +292,7 @@ func (u *ProcessOnOrderCreatedUseCase) Process(ctx context.Context, event dto.Fa
 		OrderID:          decision.OrderID,
 		OrderNumber:      order.OrderNumber,
 		ItemsCount:       len(orderItems),
+		Items:            resultItems,
 		Warning:          partialWarning,
 		MessageID:        messageID,
 		Phase:            "COMPLETED",
@@ -337,6 +353,20 @@ func buildTelegramMessage(result ProcessResult, failedPhase string, stockViewBas
 	)
 	if result.FirstItemName != "" {
 		lines = append(lines, "item: "+htmlEsc(result.FirstItemName))
+	}
+	if len(result.Items) > 0 {
+		lines = append(lines, "items:")
+		for idx, item := range result.Items {
+			lines = append(lines,
+				fmt.Sprintf("%d) orderItemId: <code>%s</code> | sku: <code>%s</code> | qty: <code>%d</code> | item: %s",
+					idx+1,
+					htmlEsc(fallback(item.OrderItemID, "N/A")),
+					htmlEsc(fallback(item.SKU, "N/A")),
+					item.Quantity,
+					htmlEsc(fallback(item.Name, "(sin nombre)")),
+				),
+			)
+		}
 	}
 	if failedPhase != "" {
 		lines = append(lines, "failedPhase: "+htmlEsc(failedPhase))
