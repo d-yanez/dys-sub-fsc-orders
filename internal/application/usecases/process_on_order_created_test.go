@@ -207,6 +207,7 @@ func TestProcessSuccess(t *testing.T) {
 }
 
 func TestProcessSuccessTelegramIncludesAllPersistedItems(t *testing.T) {
+	thumb := "https://image"
 	fscClient := &fakeFSCClient{
 		order: ports.OrderResponse{
 			OrderID:     "1148513330",
@@ -218,6 +219,7 @@ func TestProcessSuccessTelegramIncludesAllPersistedItems(t *testing.T) {
 			{OrderItemID: "160707405", SKU: "3737958359", Name: "Item 2", Quantity: 1},
 			{OrderItemID: "160707406", SKU: "3737958360", Name: "Item 3", Quantity: 1},
 		},
+		thumbnail: &thumb,
 	}
 	orderRepo := &fakeOrderRepo{}
 	itemRepo := &fakeOrderItemRepo{}
@@ -235,20 +237,36 @@ func TestProcessSuccessTelegramIncludesAllPersistedItems(t *testing.T) {
 	if result.ItemsCount != 3 {
 		t.Fatalf("expected items=3, got %d", result.ItemsCount)
 	}
-	if len(telegram.sent) != 1 {
-		t.Fatalf("expected telegram notification, got %d", len(telegram.sent))
+	if len(telegram.sent) != 3 {
+		t.Fatalf("expected 3 telegram notifications (one per item), got %d", len(telegram.sent))
 	}
 
-	msg := telegram.sent[0].Text
-	expectedSnippets := []string{
-		"itemsPersistidos: 3",
-		"1) orderItemId: <code>160707404</code> | sku: <code>3737958358</code>",
-		"2) orderItemId: <code>160707405</code> | sku: <code>3737958359</code>",
-		"3) orderItemId: <code>160707406</code> | sku: <code>3737958360</code>",
+	expectedPerMessage := []struct {
+		orderItemID string
+		sku         string
+		itemName    string
+	}{
+		{orderItemID: "160707404", sku: "3737958358", itemName: "Item 1"},
+		{orderItemID: "160707405", sku: "3737958359", itemName: "Item 2"},
+		{orderItemID: "160707406", sku: "3737958360", itemName: "Item 3"},
 	}
-	for _, snippet := range expectedSnippets {
-		if !strings.Contains(msg, snippet) {
-			t.Fatalf("expected snippet %q in telegram message, got: %s", snippet, msg)
+
+	for i, sent := range telegram.sent {
+		exp := expectedPerMessage[i]
+		required := []string{
+			"itemsPersistidos: 3",
+			"orderItemId: <code>" + exp.orderItemID + "</code>",
+			"sku: <code>" + exp.sku + "</code>",
+			"item: " + exp.itemName,
+			`ver stock bodega: <a href="https://dy-api-utils-785293986978.us-central1.run.app/stock/view/` + exp.sku + `">Ver stock bodega</a>`,
+		}
+		for _, snippet := range required {
+			if !strings.Contains(sent.Text, snippet) {
+				t.Fatalf("expected snippet %q in telegram message #%d, got: %s", snippet, i+1, sent.Text)
+			}
+		}
+		if sent.PhotoURL != thumb {
+			t.Fatalf("expected photo url %q in telegram message #%d, got %q", thumb, i+1, sent.PhotoURL)
 		}
 	}
 }

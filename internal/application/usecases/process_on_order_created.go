@@ -56,6 +56,7 @@ type ResultItem struct {
 	SKU         string
 	Name        string
 	Quantity    int
+	ThumbnailURL string
 }
 
 func NewProcessOnOrderCreatedUseCase(
@@ -259,6 +260,7 @@ func (u *ProcessOnOrderCreatedUseCase) Process(ctx context.Context, event dto.Fa
 			SKU:         sku,
 			Name:        strings.TrimSpace(it.Name),
 			Quantity:    it.Quantity,
+			ThumbnailURL: derefString(thumbnail),
 		})
 
 		if baseResult.FirstOrderItemID == "" {
@@ -318,6 +320,31 @@ func (u *ProcessOnOrderCreatedUseCase) notifyFinalNonBlocking(ctx context.Contex
 	if u.telegram == nil || result.Duplicate {
 		return
 	}
+
+	// Enviar 1 mensaje por item, preservando el mismo formato actual.
+	if len(result.Items) > 0 {
+		for _, item := range result.Items {
+			itemResult := result
+			itemResult.FirstOrderItemID = item.OrderItemID
+			itemResult.FirstSKU = item.SKU
+			itemResult.FirstItemName = item.Name
+			itemResult.ThumbnailURL = item.ThumbnailURL
+			msg := buildTelegramMessage(itemResult, failedPhase, u.stockViewBase)
+			if err := u.telegram.Send(ctx, msg); err != nil {
+				u.log.Error("telegram_notification_failed",
+					"orderId", result.OrderID,
+					"eventType", result.EventType,
+					"status", result.Status,
+					"phase", result.Phase,
+					"orderItemId", item.OrderItemID,
+					"sku", item.SKU,
+					"error", err.Error(),
+				)
+			}
+		}
+		return
+	}
+
 	msg := buildTelegramMessage(result, failedPhase, u.stockViewBase)
 	if err := u.telegram.Send(ctx, msg); err != nil {
 		u.log.Error("telegram_notification_failed",
@@ -354,20 +381,6 @@ func buildTelegramMessage(result ProcessResult, failedPhase string, stockViewBas
 	if result.FirstItemName != "" {
 		lines = append(lines, "item: "+htmlEsc(result.FirstItemName))
 	}
-	if len(result.Items) > 0 {
-		lines = append(lines, "items:")
-		for idx, item := range result.Items {
-			lines = append(lines,
-				fmt.Sprintf("%d) orderItemId: <code>%s</code> | sku: <code>%s</code> | qty: <code>%d</code> | item: %s",
-					idx+1,
-					htmlEsc(fallback(item.OrderItemID, "N/A")),
-					htmlEsc(fallback(item.SKU, "N/A")),
-					item.Quantity,
-					htmlEsc(fallback(item.Name, "(sin nombre)")),
-				),
-			)
-		}
-	}
 	if failedPhase != "" {
 		lines = append(lines, "failedPhase: "+htmlEsc(failedPhase))
 	}
@@ -403,6 +416,13 @@ func fallback(v string, def string) string {
 		return def
 	}
 	return v
+}
+
+func derefString(v *string) string {
+	if v == nil {
+		return ""
+	}
+	return strings.TrimSpace(*v)
 }
 
 func htmlEsc(v string) string {

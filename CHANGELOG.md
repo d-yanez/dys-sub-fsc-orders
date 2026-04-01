@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.3] - 2026-04-01
+- Ajuste quirúrgico en Telegram `onOrderCreated`: ahora se envía **1 mensaje por ítem persistido** (N mensajes para N ítems), manteniendo la misma estructura textual operativa.
+- Cada mensaje usa los datos del ítem correspondiente (`orderItemId`, `sku`, `item`) y su link de stock por SKU.
+- Se agregó soporte de `ThumbnailURL` por ítem para que cada mensaje adjunte su imagen del SKU (si existe).
+- Tests actualizados para validar el comportamiento multi-mensaje y contenido por ítem.
+
 ## [0.1.2] - 2026-04-01
 - Fix quirúrgico en notificación Telegram de `onOrderCreated`: ahora incluye el detalle de **todos** los ítems persistidos (orderItemId, sku, qty, nombre), no solo el primer ítem.
 - Se mantiene compatibilidad con el formato existente (`itemsPersistidos`, resumen y primer ítem) para no romper consumidores actuales.
