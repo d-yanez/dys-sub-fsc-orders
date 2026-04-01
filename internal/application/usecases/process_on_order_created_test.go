@@ -3,6 +3,7 @@ package usecases
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"strings"
@@ -268,6 +269,75 @@ func TestProcessSuccessTelegramIncludesAllPersistedItems(t *testing.T) {
 		if sent.PhotoURL != thumb {
 			t.Fatalf("expected photo url %q in telegram message #%d, got %q", thumb, i+1, sent.PhotoURL)
 		}
+	}
+}
+
+func TestProcessSuccessTelegramSendsOneNotificationPerItemForVariableCounts(t *testing.T) {
+	cases := []struct {
+		name      string
+		itemCount int
+	}{
+		{name: "one_item", itemCount: 1},
+		{name: "two_items", itemCount: 2},
+		{name: "n_items_five", itemCount: 5},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			thumb := "https://image"
+			items := make([]ports.OrderItemResponse, 0, tc.itemCount)
+			for i := 0; i < tc.itemCount; i++ {
+				items = append(items, ports.OrderItemResponse{
+					OrderItemID: fmt.Sprintf("160700%03d", i+1),
+					SKU:         fmt.Sprintf("373700%03d", i+1),
+					Name:        fmt.Sprintf("Item %d", i+1),
+					Quantity:    1,
+				})
+			}
+
+			fscClient := &fakeFSCClient{
+				order: ports.OrderResponse{
+					OrderID:     "1148513330",
+					OrderNumber: "3230404484",
+					Status:      "pending",
+				},
+				items:     items,
+				thumbnail: &thumb,
+			}
+			orderRepo := &fakeOrderRepo{}
+			itemRepo := &fakeOrderItemRepo{}
+			eventRepo := &fakeEventLogRepo{markAllowed: true}
+			telegram := &fakeTelegramNotifier{}
+			uc := NewProcessOnOrderCreatedUseCase(testLogger(), fscClient, orderRepo, itemRepo, eventRepo, telegram, "https://dy-api-utils-785293986978.us-central1.run.app/stock/view")
+
+			evt := dto.FalabellaEvent{Event: "onOrderCreated"}
+			evt.Payload.OrderID = "1148513330"
+
+			result, err := uc.Process(context.Background(), evt, "m-table", "hash-table")
+			if err != nil {
+				t.Fatalf("unexpected err: %v", err)
+			}
+			if result.ItemsCount != tc.itemCount {
+				t.Fatalf("expected items=%d, got %d", tc.itemCount, result.ItemsCount)
+			}
+			if len(telegram.sent) != tc.itemCount {
+				t.Fatalf("expected telegram notifications=%d, got %d", tc.itemCount, len(telegram.sent))
+			}
+
+			for i, sent := range telegram.sent {
+				expectedOrderItemID := fmt.Sprintf("160700%03d", i+1)
+				expectedSKU := fmt.Sprintf("373700%03d", i+1)
+				if !strings.Contains(sent.Text, "itemsPersistidos: "+fmt.Sprintf("%d", tc.itemCount)) {
+					t.Fatalf("expected itemsPersistidos=%d in message #%d, got: %s", tc.itemCount, i+1, sent.Text)
+				}
+				if !strings.Contains(sent.Text, "orderItemId: <code>"+expectedOrderItemID+"</code>") {
+					t.Fatalf("expected orderItemId %s in message #%d, got: %s", expectedOrderItemID, i+1, sent.Text)
+				}
+				if !strings.Contains(sent.Text, "sku: <code>"+expectedSKU+"</code>") {
+					t.Fatalf("expected sku %s in message #%d, got: %s", expectedSKU, i+1, sent.Text)
+				}
+			}
+		})
 	}
 }
 
