@@ -14,6 +14,13 @@ type OrderResponse struct {
 	Status               string
 	CreatedAt            string
 	PromisedShippingTime string
+	InvoiceRequired      *bool
+	GrandTotal           *float64
+	ProductTotal         *float64
+	TaxAmount            *float64
+	ShippingFeeTotal     *float64
+	AddressBilling       map[string]any
+	AddressShipping      map[string]any
 }
 
 type OrderItemResponse struct {

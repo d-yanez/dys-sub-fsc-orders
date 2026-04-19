@@ -8,6 +8,7 @@ Persistir ordenes Falabella al recibir `onOrderCreated` desde Pub/Sub push, con 
 - Validacion basica del evento y filtro por tipo.
 - Enriquecimiento de orden/items desde FSC.
 - Persistencia en MongoDB (`orders`, `order_items`).
+- Enriquecimiento fiscal/financiero de `orders` (`financial`, `addresses`).
 - Gestion de `event_logs` para idempotencia y retries.
 - Telegram final (`SUCCESS`, `PARTIAL_SUCCESS`, `FAILED`).
 
@@ -32,3 +33,4 @@ Persistir ordenes Falabella al recibir `onOrderCreated` desde Pub/Sub push, con 
 - v1 usa idempotencia simplificada sin lease lock complejo.
 - Duplicado procesado: `200`, sin reproceso y sin Telegram.
 - Fallo de thumbnail o Telegram: no tumba flujo principal (puede ser `PARTIAL_SUCCESS`).
+- Regla fiscal: `invoiceRequired=false => BOLETA`, `invoiceRequired=true => FACTURA`.

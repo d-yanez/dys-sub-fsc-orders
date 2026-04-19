@@ -175,8 +175,25 @@ func TestEvaluateAccepted(t *testing.T) {
 
 func TestProcessSuccess(t *testing.T) {
 	thumb := "https://image"
+	grandTotal := 26490.0
+	productTotal := 26490.0
+	taxAmount := 0.0
+	shippingFeeTotal := 0.0
+	invoiceRequired := false
 	fscClient := &fakeFSCClient{
-		order:     ports.OrderResponse{OrderID: "1146543495", OrderNumber: "3228563253", Status: "pending"},
+		order: ports.OrderResponse{
+			OrderID:              "1146543495",
+			OrderNumber:          "3228563253",
+			Status:               "pending",
+			GrandTotal:           &grandTotal,
+			ProductTotal:         &productTotal,
+			TaxAmount:            &taxAmount,
+			ShippingFeeTotal:     &shippingFeeTotal,
+			InvoiceRequired:      &invoiceRequired,
+			AddressBilling:       map[string]any{"FirstName": "Maria"},
+			AddressShipping:      map[string]any{"FirstName": "Maria"},
+			PromisedShippingTime: "2026-04-17 12:00:00",
+		},
 		items:     []ports.OrderItemResponse{{OrderItemID: "157246712", SKU: "3516192124", Quantity: 1}},
 		thumbnail: &thumb,
 	}
@@ -198,6 +215,18 @@ func TestProcessSuccess(t *testing.T) {
 	}
 	if orderRepo.last.OrderNumber != "3228563253" {
 		t.Fatalf("unexpected order number: %s", orderRepo.last.OrderNumber)
+	}
+	if orderRepo.last.Financial.GrandTotal == nil || *orderRepo.last.Financial.GrandTotal != 26490 {
+		t.Fatalf("expected financial.grandTotal=26490, got %+v", orderRepo.last.Financial.GrandTotal)
+	}
+	if orderRepo.last.Financial.InvoiceRequired == nil || *orderRepo.last.Financial.InvoiceRequired {
+		t.Fatalf("expected invoiceRequired=false, got %+v", orderRepo.last.Financial.InvoiceRequired)
+	}
+	if orderRepo.last.Financial.DocumentType == nil || *orderRepo.last.Financial.DocumentType != "BOLETA" {
+		t.Fatalf("expected documentType=BOLETA, got %+v", orderRepo.last.Financial.DocumentType)
+	}
+	if orderRepo.last.Addresses.Billing == nil || orderRepo.last.Addresses.Shipping == nil {
+		t.Fatalf("expected billing/shipping addresses persisted")
 	}
 	if len(telegram.sent) != 1 {
 		t.Fatalf("expected telegram notification, got %d", len(telegram.sent))

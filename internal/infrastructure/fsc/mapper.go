@@ -2,6 +2,7 @@ package fsc
 
 import (
 	"strconv"
+	"strings"
 )
 
 func firstString(m map[string]any, keys ...string) string {
@@ -43,4 +44,87 @@ func firstInt(m map[string]any, keys ...string) int {
 		}
 	}
 	return 0
+}
+
+func firstNumber(m map[string]any, keys ...string) *float64 {
+	for _, key := range keys {
+		v, ok := m[key]
+		if !ok || v == nil {
+			continue
+		}
+		switch vv := v.(type) {
+		case float64:
+			n := vv
+			return &n
+		case float32:
+			n := float64(vv)
+			return &n
+		case int:
+			n := float64(vv)
+			return &n
+		case int64:
+			n := float64(vv)
+			return &n
+		case string:
+			raw := strings.TrimSpace(strings.ReplaceAll(vv, ",", ""))
+			if raw == "" {
+				continue
+			}
+			parsed, err := strconv.ParseFloat(raw, 64)
+			if err == nil {
+				n := parsed
+				return &n
+			}
+		}
+	}
+	return nil
+}
+
+func firstBool(m map[string]any, keys ...string) *bool {
+	for _, key := range keys {
+		v, ok := m[key]
+		if !ok || v == nil {
+			continue
+		}
+		switch vv := v.(type) {
+		case bool:
+			b := vv
+			return &b
+		case string:
+			raw := strings.ToLower(strings.TrimSpace(vv))
+			if raw == "true" {
+				b := true
+				return &b
+			}
+			if raw == "false" {
+				b := false
+				return &b
+			}
+		}
+	}
+	return nil
+}
+
+func firstMap(m map[string]any, keys ...string) map[string]any {
+	for _, key := range keys {
+		v, ok := m[key]
+		if !ok || v == nil {
+			continue
+		}
+		if mm, ok := v.(map[string]any); ok {
+			return cloneMap(mm)
+		}
+	}
+	return nil
+}
+
+func cloneMap(in map[string]any) map[string]any {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]any, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
 }

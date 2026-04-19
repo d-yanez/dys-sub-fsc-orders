@@ -52,10 +52,10 @@ type ProcessResult struct {
 }
 
 type ResultItem struct {
-	OrderItemID string
-	SKU         string
-	Name        string
-	Quantity    int
+	OrderItemID  string
+	SKU          string
+	Name         string
+	Quantity     int
 	ThumbnailURL string
 }
 
@@ -197,7 +197,19 @@ func (u *ProcessOnOrderCreatedUseCase) Process(ctx context.Context, event dto.Fa
 		Status:               strings.TrimSpace(orderResp.Status),
 		CreatedAt:            orderCreatedAt,
 		PromisedShippingTime: promisedShippingTime,
-		Marketplace:          "falabella",
+		Financial: entities.Financial{
+			GrandTotal:       orderResp.GrandTotal,
+			ProductTotal:     orderResp.ProductTotal,
+			TaxAmount:        orderResp.TaxAmount,
+			ShippingFeeTotal: orderResp.ShippingFeeTotal,
+			InvoiceRequired:  orderResp.InvoiceRequired,
+			DocumentType:     deriveDocumentType(orderResp.InvoiceRequired),
+		},
+		Addresses: entities.Addresses{
+			Billing:  orderResp.AddressBilling,
+			Shipping: orderResp.AddressShipping,
+		},
+		Marketplace: "falabella",
 		Audit: entities.AuditOrder{
 			CreatedAt:   now,
 			UpdatedAt:   now,
@@ -256,10 +268,10 @@ func (u *ProcessOnOrderCreatedUseCase) Process(ctx context.Context, event dto.Fa
 			},
 		})
 		resultItems = append(resultItems, ResultItem{
-			OrderItemID: itemID,
-			SKU:         sku,
-			Name:        strings.TrimSpace(it.Name),
-			Quantity:    it.Quantity,
+			OrderItemID:  itemID,
+			SKU:          sku,
+			Name:         strings.TrimSpace(it.Name),
+			Quantity:     it.Quantity,
 			ThumbnailURL: derefString(thumbnail),
 		})
 
@@ -454,4 +466,16 @@ func parseTime(raw string) *time.Time {
 		}
 	}
 	return nil
+}
+
+func deriveDocumentType(invoiceRequired *bool) *string {
+	if invoiceRequired == nil {
+		return nil
+	}
+	if *invoiceRequired {
+		v := "FACTURA"
+		return &v
+	}
+	v := "BOLETA"
+	return &v
 }

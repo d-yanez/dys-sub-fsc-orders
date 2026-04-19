@@ -10,6 +10,7 @@ En esta etapa (PR4) el servicio implementa:
 - filtro de `onOrderCreated`
 - cliente FSC (`/order`, `/orderItems`, `/sku`)
 - persistencia core en MongoDB (`orders`, `order_items`)
+- enriquecimiento fiscal/financiero en `orders.financial` y `orders.addresses`
 - `event_logs` con idempotencia simplificada (`processed`, `status`, `attempts`)
 - duplicados por `eventType + orderId` ignorados con ACK `200`
 - retries habilitados para fallos criticos (`500`)
@@ -51,7 +52,14 @@ go run ./cmd/api
 go test ./...
 ```
 
+## Backfill histórico (faltantes)
+Script idempotente para poblar `financial` y `addresses` en órdenes antiguas:
+
+```bash
+./scripts/backfill_orders_financial.sh --dry-run=true --limit=100 --batch-size=50
+./scripts/backfill_orders_financial.sh --dry-run=false --limit=1000 --batch-size=100 --from-order-id=1140000000
+```
+
 ## Scope v1 pendiente (PRs siguientes)
 - cierre deploy productivo 
-
 

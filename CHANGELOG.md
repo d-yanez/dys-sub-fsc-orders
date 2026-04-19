@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.4] - 2026-04-19
+- Se agrega enriquecimiento en `orders` con subdocumentos:
+  - `financial.{grandTotal,productTotal,taxAmount,shippingFeeTotal,invoiceRequired,documentType}`
+  - `addresses.{billing,shipping}`
+- Regla derivada de documento fiscal:
+  - `invoiceRequired=false => BOLETA`
+  - `invoiceRequired=true => FACTURA`
+- Adaptador FSC actualizado para leer los nuevos campos de `GET /order/{orderId}`.
+- Nuevo comando de backfill idempotente para órdenes históricas faltantes (`cmd/backfill`) + wrapper script `scripts/backfill_orders_financial.sh`.
+
 ## [0.1.3] - 2026-04-01
 - Ajuste quirúrgico en Telegram `onOrderCreated`: ahora se envía **1 mensaje por ítem persistido** (N mensajes para N ítems), manteniendo la misma estructura textual operativa.
 - Cada mensaje usa los datos del ítem correspondiente (`orderItemId`, `sku`, `item`) y su link de stock por SKU.

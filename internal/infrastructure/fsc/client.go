@@ -35,12 +35,42 @@ func (c *Client) GetOrder(ctx context.Context, orderID string) (ports.OrderRespo
 		return ports.OrderResponse{}, err
 	}
 
+	financial := firstMap(body, "financial", "Financial")
+	totals := firstMap(body, "totals", "Totals")
+	grandTotal := pickNumber(
+		firstNumber(financial, "grandTotal", "GrandTotal"),
+		firstNumber(totals, "grandTotal", "GrandTotal"),
+		firstNumber(body, "grandTotal", "GrandTotal", "Price"),
+	)
+	productTotal := pickNumber(
+		firstNumber(financial, "productTotal", "ProductTotal"),
+		firstNumber(totals, "productTotal", "ProductTotal"),
+		firstNumber(body, "productTotal", "ProductTotal"),
+	)
+	taxAmount := pickNumber(
+		firstNumber(financial, "taxAmount", "TaxAmount"),
+		firstNumber(totals, "taxAmount", "TaxAmount"),
+		firstNumber(body, "taxAmount", "TaxAmount"),
+	)
+	shippingFeeTotal := pickNumber(
+		firstNumber(financial, "shippingFeeTotal", "ShippingFeeTotal"),
+		firstNumber(totals, "shippingFeeTotal", "ShippingFeeTotal"),
+		firstNumber(body, "shippingFeeTotal", "ShippingFeeTotal"),
+	)
+
 	return ports.OrderResponse{
 		OrderID:              firstString(body, "orderId", "OrderId", "id"),
 		OrderNumber:          firstString(body, "orderNumber", "OrderNumber"),
 		Status:               firstString(body, "status", "Status"),
 		CreatedAt:            firstString(body, "createdAt", "CreatedAt"),
 		PromisedShippingTime: firstString(body, "promisedShippingTime", "PromisedShippingTime"),
+		InvoiceRequired:      firstBool(body, "invoiceRequired", "InvoiceRequired"),
+		GrandTotal:           grandTotal,
+		ProductTotal:         productTotal,
+		TaxAmount:            taxAmount,
+		ShippingFeeTotal:     shippingFeeTotal,
+		AddressBilling:       firstMap(body, "addressBilling", "AddressBilling"),
+		AddressShipping:      firstMap(body, "addressShipping", "AddressShipping"),
 	}, nil
 }
 
@@ -134,4 +164,13 @@ func (c *Client) getJSON(ctx context.Context, path string) (map[string]any, erro
 		return nil, err
 	}
 	return payload, nil
+}
+
+func pickNumber(values ...*float64) *float64 {
+	for _, v := range values {
+		if v != nil {
+			return v
+		}
+	}
+	return nil
 }
