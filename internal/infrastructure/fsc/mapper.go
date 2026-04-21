@@ -80,6 +80,37 @@ func firstNumber(m map[string]any, keys ...string) *float64 {
 	return nil
 }
 
+func firstInt64(m map[string]any, keys ...string) int64 {
+	for _, key := range keys {
+		v, ok := m[key]
+		if !ok || v == nil {
+			continue
+		}
+		switch vv := v.(type) {
+		case float64:
+			return int64(vv)
+		case float32:
+			return int64(vv)
+		case int:
+			return int64(vv)
+		case int64:
+			return vv
+		case string:
+			raw := strings.TrimSpace(strings.ReplaceAll(vv, ",", ""))
+			if raw == "" {
+				continue
+			}
+			if parsed, err := strconv.ParseInt(raw, 10, 64); err == nil {
+				return parsed
+			}
+			if parsed, err := strconv.ParseFloat(raw, 64); err == nil {
+				return int64(parsed)
+			}
+		}
+	}
+	return 0
+}
+
 func firstBool(m map[string]any, keys ...string) *bool {
 	for _, key := range keys {
 		v, ok := m[key]

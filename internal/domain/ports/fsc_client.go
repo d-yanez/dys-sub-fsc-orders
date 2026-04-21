@@ -30,6 +30,9 @@ type OrderItemResponse struct {
 	ShopSKU          string
 	Status           string
 	Quantity         int
+	Price            int64
+	PaidPrice        int64
+	ShippingAmount   int64
 	TrackingCode     string
 	PackageID        string
 	ShipmentProvider string

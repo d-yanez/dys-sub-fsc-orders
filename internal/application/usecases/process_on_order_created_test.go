@@ -194,7 +194,14 @@ func TestProcessSuccess(t *testing.T) {
 			AddressShipping:      map[string]any{"FirstName": "Maria"},
 			PromisedShippingTime: "2026-04-17 12:00:00",
 		},
-		items:     []ports.OrderItemResponse{{OrderItemID: "157246712", SKU: "3516192124", Quantity: 1}},
+		items: []ports.OrderItemResponse{{
+			OrderItemID:    "157246712",
+			SKU:            "3516192124",
+			Quantity:       1,
+			Price:          26490,
+			PaidPrice:      26490,
+			ShippingAmount: 0,
+		}},
 		thumbnail: &thumb,
 	}
 	orderRepo := &fakeOrderRepo{}
@@ -230,6 +237,12 @@ func TestProcessSuccess(t *testing.T) {
 	}
 	if len(telegram.sent) != 1 {
 		t.Fatalf("expected telegram notification, got %d", len(telegram.sent))
+	}
+	if len(itemRepo.last) != 1 {
+		t.Fatalf("expected one persisted order item, got %d", len(itemRepo.last))
+	}
+	if itemRepo.last[0].PaidPrice != 26490 || itemRepo.last[0].Price != 26490 {
+		t.Fatalf("expected item pricing persisted, got %+v", itemRepo.last[0])
 	}
 	if !strings.Contains(telegram.sent[0].Text, `ver stock bodega: <a href="https://dy-api-utils-785293986978.us-central1.run.app/stock/view/3516192124">Ver stock bodega</a>`) {
 		t.Fatalf("expected stock link in telegram message, got: %s", telegram.sent[0].Text)

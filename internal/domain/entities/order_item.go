@@ -12,6 +12,9 @@ type OrderItem struct {
 	ShopSKU          string         `bson:"shopSku,omitempty"`
 	Status           string         `bson:"status,omitempty"`
 	Quantity         int            `bson:"quantity"`
+	Price            int64          `bson:"price,omitempty"`
+	PaidPrice        int64          `bson:"paidPrice,omitempty"`
+	ShippingAmount   int64          `bson:"shippingAmount,omitempty"`
 	TrackingCode     string         `bson:"trackingCode,omitempty"`
 	PackageID        string         `bson:"packageId,omitempty"`
 	ShipmentProvider string         `bson:"shipmentProvider,omitempty"`
