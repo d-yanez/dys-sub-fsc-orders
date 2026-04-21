@@ -5,9 +5,10 @@ Este directorio contiene la documentacion tecnica base del servicio `dys-sub-fsc
 Lectura sugerida (orden):
 1. `ARCHITECTURE.md`
 2. `SDD.md`
-3. `ENGINEERING_PRACTICES.md`
-4. `RELEASE_PROCESS.md`
-5. `CHANGELOG.md`
+3. `EXEC_SUMMARY.md`
+4. `ENGINEERING_PRACTICES.md`
+5. `RELEASE_PROCESS.md`
+6. `CHANGELOG.md`
 
 Documentos operativos existentes:
 - `event-flow.md`: flujo runtime del evento `onOrderCreated`
