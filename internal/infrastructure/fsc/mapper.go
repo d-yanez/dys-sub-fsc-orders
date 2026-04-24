@@ -159,3 +159,13 @@ func cloneMap(in map[string]any) map[string]any {
 	}
 	return out
 }
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		trimmed := strings.TrimSpace(v)
+		if trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}

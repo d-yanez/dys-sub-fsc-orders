@@ -185,6 +185,19 @@ func TestProcessSuccess(t *testing.T) {
 			OrderID:              "1146543495",
 			OrderNumber:          "3228563253",
 			Status:               "pending",
+			CustomerFirstName:    "Maria",
+			CustomerLastName:     "Perez",
+			CustomerEmail:        "maria@empresa.cl",
+			CustomerTaxID:        "96912840-3",
+			CustomerCompany:      "AQUAGEN CHILE S.A.",
+			CustomerActivity:     "032110 - CULTIVO Y CRIANZA DE PECES MARINOS",
+			CustomerAddress:      "SAN FRANCISCO 328",
+			CustomerMunicipality: "PUERTO VARAS - PUERTO VARAS",
+			ExtraBillingAttrs: map[string]any{
+				"LegalId":             "96912840-3",
+				"ReceiverLegalName":   "AQUAGEN CHILE S.A.",
+				"ReceiverTypeRegimen": "032110 - CULTIVO Y CRIANZA DE PECES MARINOS",
+			},
 			GrandTotal:           &grandTotal,
 			ProductTotal:         &productTotal,
 			TaxAmount:            &taxAmount,
@@ -231,6 +244,18 @@ func TestProcessSuccess(t *testing.T) {
 	}
 	if orderRepo.last.Financial.DocumentType == nil || *orderRepo.last.Financial.DocumentType != "BOLETA" {
 		t.Fatalf("expected documentType=BOLETA, got %+v", orderRepo.last.Financial.DocumentType)
+	}
+	if orderRepo.last.Customer.NationalRegistrationNumber != "96912840-3" {
+		t.Fatalf("expected customer tax id persisted, got %+v", orderRepo.last.Customer)
+	}
+	if orderRepo.last.Customer.Company != "AQUAGEN CHILE S.A." {
+		t.Fatalf("expected customer company persisted, got %+v", orderRepo.last.Customer)
+	}
+	if orderRepo.last.Customer.Activity != "032110 - CULTIVO Y CRIANZA DE PECES MARINOS" {
+		t.Fatalf("expected customer activity persisted, got %+v", orderRepo.last.Customer)
+	}
+	if orderRepo.last.Customer.ExtraBillingAttributes == nil {
+		t.Fatalf("expected extra billing attributes persisted")
 	}
 	if orderRepo.last.Addresses.Billing == nil || orderRepo.last.Addresses.Shipping == nil {
 		t.Fatalf("expected billing/shipping addresses persisted")

@@ -35,6 +35,8 @@ func (c *Client) GetOrder(ctx context.Context, orderID string) (ports.OrderRespo
 		return ports.OrderResponse{}, err
 	}
 
+	customer := firstMap(body, "customer", "Customer")
+	extraBilling := firstMap(body, "extraBillingAttributes", "ExtraBillingAttributes")
 	financial := firstMap(body, "financial", "Financial")
 	totals := firstMap(body, "totals", "Totals")
 	grandTotal := pickNumber(
@@ -65,12 +67,48 @@ func (c *Client) GetOrder(ctx context.Context, orderID string) (ports.OrderRespo
 		CreatedAt:            firstString(body, "createdAt", "CreatedAt"),
 		PromisedShippingTime: firstString(body, "promisedShippingTime", "PromisedShippingTime"),
 		InvoiceRequired:      firstBool(body, "invoiceRequired", "InvoiceRequired"),
-		GrandTotal:           grandTotal,
-		ProductTotal:         productTotal,
-		TaxAmount:            taxAmount,
-		ShippingFeeTotal:     shippingFeeTotal,
-		AddressBilling:       firstMap(body, "addressBilling", "AddressBilling"),
-		AddressShipping:      firstMap(body, "addressShipping", "AddressShipping"),
+		CustomerFirstName: firstNonEmpty(
+			firstString(customer, "firstName", "FirstName"),
+			firstString(body, "customerFirstName", "CustomerFirstName"),
+		),
+		CustomerLastName: firstNonEmpty(
+			firstString(customer, "lastName", "LastName"),
+			firstString(body, "customerLastName", "CustomerLastName"),
+		),
+		CustomerEmail: firstNonEmpty(
+			firstString(customer, "receiverEmail", "ReceiverEmail"),
+			firstString(customer, "email", "Email"),
+			firstString(extraBilling, "ReceiverEmail"),
+		),
+		CustomerTaxID: firstNonEmpty(
+			firstString(customer, "legalId", "LegalId"),
+			firstString(extraBilling, "LegalId"),
+			firstString(customer, "nationalRegistrationNumber", "NationalRegistrationNumber"),
+			firstString(body, "nationalRegistrationNumber", "NationalRegistrationNumber"),
+		),
+		CustomerCompany: firstNonEmpty(
+			firstString(customer, "receiverLegalName", "ReceiverLegalName"),
+			firstString(extraBilling, "ReceiverLegalName"),
+		),
+		CustomerActivity: firstNonEmpty(
+			firstString(customer, "receiverTypeRegimen", "ReceiverTypeRegimen"),
+			firstString(extraBilling, "ReceiverTypeRegimen"),
+		),
+		CustomerAddress: firstNonEmpty(
+			firstString(customer, "receiverAddress", "ReceiverAddress"),
+			firstString(extraBilling, "ReceiverAddress"),
+		),
+		CustomerMunicipality: firstNonEmpty(
+			firstString(customer, "receiverMunicipality", "ReceiverMunicipality"),
+			firstString(extraBilling, "ReceiverMunicipality"),
+		),
+		GrandTotal:        grandTotal,
+		ProductTotal:      productTotal,
+		TaxAmount:         taxAmount,
+		ShippingFeeTotal:  shippingFeeTotal,
+		AddressBilling:    firstMap(body, "addressBilling", "AddressBilling"),
+		AddressShipping:   firstMap(body, "addressShipping", "AddressShipping"),
+		ExtraBillingAttrs: extraBilling,
 	}, nil
 }
 

@@ -205,6 +205,17 @@ func (u *ProcessOnOrderCreatedUseCase) Process(ctx context.Context, event dto.Fa
 			InvoiceRequired:  orderResp.InvoiceRequired,
 			DocumentType:     deriveDocumentType(orderResp.InvoiceRequired),
 		},
+		Customer: entities.Customer{
+			FirstName:                  strings.TrimSpace(orderResp.CustomerFirstName),
+			LastName:                   strings.TrimSpace(orderResp.CustomerLastName),
+			Email:                      strings.TrimSpace(orderResp.CustomerEmail),
+			NationalRegistrationNumber: strings.TrimSpace(orderResp.CustomerTaxID),
+			Company:                    strings.TrimSpace(orderResp.CustomerCompany),
+			Activity:                   strings.TrimSpace(orderResp.CustomerActivity),
+			Address:                    strings.TrimSpace(orderResp.CustomerAddress),
+			Municipality:               strings.TrimSpace(orderResp.CustomerMunicipality),
+			ExtraBillingAttributes:     orderResp.ExtraBillingAttrs,
+		},
 		Addresses: entities.Addresses{
 			Billing:  orderResp.AddressBilling,
 			Shipping: orderResp.AddressShipping,
