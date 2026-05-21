@@ -74,9 +74,9 @@ jobs:
             --platform managed \
             --no-allow-unauthenticated \
             --service-account "${{ env.RUNTIME_SERVICE_ACCOUNT }}" \
-            --cpu 0.5 \
+            --cpu 1 \
             --memory 256Mi \
-            --concurrency 1 \
+            --concurrency 10 \
             --min-instances 0 \
             --max-instances 2 \
             --quiet
